@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Somnia.Game/Somnia.Game.csproj" />
+  <Project Path="Somnia.Tests/Somnia.Tests.csproj" />
+</Solution>

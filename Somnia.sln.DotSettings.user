@@ -1,0 +1,26 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=33fdbe3b_002D818a_002D4712_002Daf28_002De6e0b4a4cf1b/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="PlayerTests #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;NUnit3x::958E1256-0652-927B-48BC-A9D17FA28DB6::net10.0::Somnia.Tests.PlayerTests&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=3d55a26d_002Dd9aa_002D4774_002Daec6_002D5251be0f6774/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="PlayerTests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;NUnit3x::958E1256-0652-927B-48BC-A9D17FA28DB6::net10.0::Somnia.Tests.PlayerTests&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=7ecd29c9_002Da27a_002D40c4_002D90ef_002De950a058ac95/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="PlayerTests #3" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;NUnit3x::958E1256-0652-927B-48BC-A9D17FA28DB6::net10.0::Somnia.Tests.PlayerTests&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=d6f0919a_002D0db8_002D4aa9_002Dbdcb_002Da618befce6f8/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="PlayerTests #4" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;NUnit3x::958E1256-0652-927B-48BC-A9D17FA28DB6::net10.0::Somnia.Tests.PlayerTests.Speed_ShouldBeHalved_WhenCarryingNPC&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=fa57e0d5_002Db815_002D43ce_002Dbef7_002D7c8cf90dcd9e/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="PlayerTests #5" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;NUnit3x::958E1256-0652-927B-48BC-A9D17FA28DB6::net10.0::Somnia.Tests.PlayerTests&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>
