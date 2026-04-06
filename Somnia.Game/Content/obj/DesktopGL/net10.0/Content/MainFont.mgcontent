@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <SourceFile>C:/Users/Пользователь/RiderProjects/SomniaGame/Somnia.Game/Content/MainFont.spritefont</SourceFile>
+  <SourceTime>2026-04-06T17:52:32.2764269+05:00</SourceTime>
+  <DestFile>C:/Users/Пользователь/RiderProjects/SomniaGame/Somnia.Game/Content/bin/DesktopGL/Content/MainFont.xnb</DestFile>
+  <DestTime>2026-04-06T17:53:44.7502041+05:00</DestTime>
+  <Importer>FontDescriptionImporter</Importer>
+  <ImporterTime>2025-10-20T19:25:32+05:00</ImporterTime>
+  <Processor>FontDescriptionProcessor</Processor>
+  <ProcessorTime>2025-10-20T19:25:32+05:00</ProcessorTime>
+  <Dependencies />
+  <BuildAsset />
+  <BuildOutput />
+</PipelineBuildEvent>
