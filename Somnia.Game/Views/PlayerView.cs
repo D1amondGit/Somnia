@@ -22,24 +22,20 @@ namespace Somnia.Game.Views
 
         public void DrawPlayerUI(SpriteBatch spriteBatch, PlayerModel model, int screenWidth)
         {
-            // 1. Шкала игрока (закреплена слева сверху)
             int barWidth = 200;
             int barHeight = 20;
             Rectangle healthBarBackground = new Rectangle(10, 10, barWidth, barHeight);
     
-            // Рассчитываем ширину полоски здоровья на основе текущего здоровья
             int currentHealthWidth = (int)(barWidth * (model.CurrentHealth / model.MaxHealth));
+            if (currentHealthWidth < 0) currentHealthWidth = 0; // Защита от минуса
             Rectangle healthBarForeground = new Rectangle(10, 10, currentHealthWidth, barHeight);
 
-            // Рисуем фон (серый) и здоровье (красный)
             spriteBatch.Draw(_texture, healthBarBackground, Color.Gray);
             spriteBatch.Draw(_texture, healthBarForeground, Color.Red);
         }
 
         public void DrawDamageZone(SpriteBatch spriteBatch, Rectangle damageZone)
         {
-            // Используем Color.Red * 0.3f, чтобы сделать цвет прозрачным на 70% 
-            // (чтобы сквозь зону было видно фон и персонажей)
             spriteBatch.Draw(_texture, damageZone, Color.Red * 0.3f);
         }
         
@@ -47,20 +43,21 @@ namespace Somnia.Game.Views
         {
             if (npc.IsPickedUp) return;
 
-            // ... отрисовка самого NPC ...
+            // ВОТ ЭТА СТРОКА ПРОПАЛА: РИСУЕМ ТЕЛО NPC
+            spriteBatch.Draw(_texture, new Rectangle((int)npc.Position.X, (int)npc.Position.Y, 40, 40), Color.Yellow);
 
-            // 2. Шкала NPC (маленькая и следует за ним)
+            // Рисуем шкалу здоровья над NPC
             int barWidth = 60;
             int barHeight = 8;
-            // Позиционируем над NPC
             Vector2 barPosition = npc.Position + new Vector2(-10, -15); 
 
             Rectangle healthBarBackground = new Rectangle((int)barPosition.X, (int)barPosition.Y, barWidth, barHeight);
             int currentHealthWidth = (int)(barWidth * (npc.CurrentHealth / npc.MaxHealth));
+            if (currentHealthWidth < 0) currentHealthWidth = 0;
             Rectangle healthBarForeground = new Rectangle((int)barPosition.X, (int)barPosition.Y, currentHealthWidth, barHeight);
 
             spriteBatch.Draw(_texture, healthBarBackground, Color.Gray);
-            spriteBatch.Draw(_texture, healthBarForeground, Color.Yellow); // Желтый цвет для NPC
+            spriteBatch.Draw(_texture, healthBarForeground, Color.LimeGreen); // Сделал зеленым, чтобы отличалось от тела
         }
     }
 }

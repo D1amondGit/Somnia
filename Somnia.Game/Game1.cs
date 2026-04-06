@@ -16,29 +16,28 @@ namespace Somnia.Game
         private NpcModel _npcModel;
         private PlayerController _playerController;
         private PlayerView _view;
-        private Rectangle _damageZone; // Прямоугольник зоны урона
-        private float _damagePerSecond = 20f; // Урон в секунду
+        private Rectangle _damageZone; 
+        private float _damagePerSecond = 20f; 
+
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
 
-            // ВКЛЮЧАЕМ ПОЛНЫЙ ЭКРАН
             _graphics.PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
             _graphics.PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
             _graphics.IsFullScreen = true;
             _graphics.ApplyChanges();
-            
-            
         }
 
         protected override void Initialize()
         {
             _playerModel = new PlayerModel(new System.Numerics.Vector2(200, 200));
-            _npcModel = new NpcModel(new System.Numerics.Vector2(600, 400)); // NPC стоит в стороне
+            _npcModel = new NpcModel(new System.Numerics.Vector2(600, 400)); 
             _playerController = new PlayerController(_playerModel);
             _damageZone = new Rectangle(400, 300, 200, 200);
+            
             base.Initialize();
         }
 
@@ -50,18 +49,14 @@ namespace Somnia.Game
 
         protected override void Update(GameTime gameTime)
         {
-            // 1. Читаем текущее состояние клавиатуры
             var currentKeyboardState = Keyboard.GetState();
-    
             if (currentKeyboardState.IsKeyDown(Keys.Escape)) Exit();
 
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-            // 1. Проверяем, находится ли игрок в зоне урона
             Rectangle playerRect = new Rectangle((int)_playerModel.Position.X, (int)_playerModel.Position.Y, 50, 50);
             if (playerRect.Intersects(_damageZone))
             {
-                // Наносим урон игроку
                 _playerModel.TakeDamage(_damagePerSecond * deltaTime);
             }
             
@@ -69,10 +64,6 @@ namespace Somnia.Game
 
             float distance = System.Numerics.Vector2.Distance(_playerModel.Position, _npcModel.Position);
     
-            // 2. ГЛАВНАЯ МАГИЯ ЗДЕСЬ: 
-            // Проверяем, что сейчас "E" нажата, а в ПРОШЛОМ кадре была отпущена
-            
-            
             if (currentKeyboardState.IsKeyDown(Keys.E) && _previousKeyboardState.IsKeyUp(Keys.E))
             {
                 if (_playerModel.State == PlayerState.Free && distance < 70)
@@ -88,9 +79,7 @@ namespace Somnia.Game
                 }
             }
 
-            // 3. В самом конце кадра: сохраняем текущее состояние как "прошлое" для следующего кадра
             _previousKeyboardState = currentKeyboardState;
-
             base.Update(gameTime);
         }
 
@@ -100,15 +89,19 @@ namespace Somnia.Game
 
             _spriteBatch.Begin();
 
-            // 2. Визуализируем зону урона (полупрозрачный красный)
-            _view.DrawDamageZone(_spriteBatch, _damageZone); // Реализуй этот метод во View аналогично DrawNpc
+            // 1. Рисуем зону урона
+            _view.DrawDamageZone(_spriteBatch, _damageZone); 
 
-            // ... отрисовка NPC и игрока ...
+            // 2. РИСУЕМ ПЕРСОНАЖЕЙ (Ты случайно удалил это в прошлый раз)
+            _view.DrawNpc(_spriteBatch, _npcModel);
+            _view.DrawPlayer(_spriteBatch, _playerModel);
     
-            // 3. Отрисовка UI здоровья (после всех объектов)
+            // 3. Рисуем интерфейс
             _view.DrawPlayerUI(_spriteBatch, _playerModel, _graphics.PreferredBackBufferWidth);
 
             _spriteBatch.End();
+            
+            base.Draw(gameTime);
         }
     }
 }
