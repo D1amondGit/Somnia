@@ -32,3 +32,4 @@ C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Game\obj\Debug
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Game\obj\Debug\net10.0\Somnia.Game.pdb
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Game\obj\Debug\net10.0\Somnia.Game.genruntimeconfig.cache
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Game\obj\Debug\net10.0\ref\Somnia.Game.dll
+C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Game\bin\Debug\net10.0\Content\MainFont.xnb

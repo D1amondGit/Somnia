@@ -182,3 +182,4 @@ C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debu
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debug\net10.0\Somnia.Tests.pdb
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debug\net10.0\Somnia.Tests.genruntimeconfig.cache
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debug\net10.0\ref\Somnia.Tests.dll
+C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\bin\Debug\net10.0\Content\MainFont.xnb

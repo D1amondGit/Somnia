@@ -23,7 +23,12 @@ namespace Somnia.Game.Controllers
             if (keyboardState.IsKeyDown(Keys.A)) direction.X -= 1;
             if (keyboardState.IsKeyDown(Keys.D)) direction.X += 1;
 
-            // Теперь контроллер просто передает направление и размеры экрана
+            // Считываем рывок
+            if (keyboardState.IsKeyDown(Keys.LeftShift))
+            {
+                _model.StartDash(direction);
+            }
+
             _model.Move(direction, deltaTime, screenWidth, screenHeight);
         }
     }

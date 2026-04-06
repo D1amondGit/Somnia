@@ -13,3 +13,5 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin MainFont.spritefont
+/build:MainFont.spritefont
