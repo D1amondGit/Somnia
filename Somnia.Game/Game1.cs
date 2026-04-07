@@ -20,7 +20,7 @@ namespace Somnia.Game
         private PlayerController _playerController;
         private PlayerView _view;
         private Rectangle _damageZone; 
-        private float _damagePerSecond = 25f; 
+        private float _damagePerSecond = 10f; 
         private SpriteFont _font;
         private GameState _gameState = GameState.Playing; // НОВОЕ: Текущее состояние игры
 
@@ -38,7 +38,7 @@ namespace Somnia.Game
 
         protected override void Initialize()
         {
-            RestartGame(); // Вынесли создание объектов в отдельный метод
+            RestartGame();
             _damageZone = new Rectangle(400, 300, 300, 300); 
             base.Initialize();
         }
@@ -47,7 +47,7 @@ namespace Somnia.Game
         private void RestartGame()
         {
             _playerModel = new PlayerModel(new System.Numerics.Vector2(200, 200));
-            _npcModel = new NpcModel(new System.Numerics.Vector2(600, 400)); 
+            _npcModel = new NpcModel(new System.Numerics.Vector2(200, 400)); 
             _playerController = new PlayerController(_playerModel);
             _gameState = GameState.Playing;
         }

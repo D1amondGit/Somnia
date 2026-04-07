@@ -47,7 +47,7 @@ namespace Somnia.Game.Models
         private const float DashDuration = 0.15f;    // Длительность рывка
         private const float DashCooldown = 1.5f;     // Кулдаун
         private Vector2 _dashDirection;
-
+        
         public void StartDash(Vector2 direction)
         {
             // Нельзя рывком выйти из состояния Carrying (по логике игры) 
@@ -60,7 +60,6 @@ namespace Somnia.Game.Models
                 _dashDirection = Vector2.Normalize(direction);
             }
         }
-        // НОВОЕ: Проверка на смерть
         public bool IsDead => CurrentHealth <= 0;
 
         public PlayerModel(Vector2 startPosition)
