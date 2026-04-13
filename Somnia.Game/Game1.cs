@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using Somnia.Game.Models;
 using Somnia.Game.Controllers;
 using Somnia.Game.Views;
+using System.Collections.Generic;
 
 namespace Somnia.Game
 {
@@ -17,10 +18,13 @@ namespace Somnia.Game
         
         private PlayerModel _playerModel;
         private NpcModel _npcModel;
+        private EnemyModel _enemyModel;
         private PlayerController _playerController;
+        private EnemyController _enemyController;
         private PlayerView _view;
-        private Rectangle _damageZone; 
-        private float _damagePerSecond = 10f; 
+        private Rectangle _damageZone;
+        private List<AnomalyZone> _anomalyZones;
+        private float _damagePerSecond = 10f;
         private SpriteFont _font;
         private GameState _gameState = GameState.Playing; // НОВОЕ: Текущее состояние игры
 
@@ -39,7 +43,12 @@ namespace Somnia.Game
         protected override void Initialize()
         {
             RestartGame();
-            _damageZone = new Rectangle(400, 300, 300, 300); 
+            _damageZone = new Rectangle(400, 300, 300, 300);
+            _anomalyZones = new List<AnomalyZone>
+            {
+                new AnomalyZone(new Rectangle(150, 150, 200, 150), ZoneType.Red),
+                new AnomalyZone(new Rectangle(600, 400, 200, 150), ZoneType.Blue),
+            };
             base.Initialize();
         }
 
@@ -47,8 +56,10 @@ namespace Somnia.Game
         private void RestartGame()
         {
             _playerModel = new PlayerModel(new System.Numerics.Vector2(200, 200));
-            _npcModel = new NpcModel(new System.Numerics.Vector2(200, 400)); 
+            _npcModel = new NpcModel(new System.Numerics.Vector2(200, 400));
+            _enemyModel = new EnemyModel(new System.Numerics.Vector2(800, 300));
             _playerController = new PlayerController(_playerModel);
+            _enemyController = new EnemyController(_enemyModel);
             _gameState = GameState.Playing;
         }
 
@@ -56,9 +67,54 @@ namespace Somnia.Game
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _view = new PlayerView(GraphicsDevice);
-    
+
             // Загружаем наш скомпилированный шрифт
             _font = Content.Load<SpriteFont>("MainFont");
+        }
+
+        private AnomalyZone GetCurrentZone()
+        {
+            foreach (var zone in _anomalyZones)
+            {
+                if (zone.ContainsPoint(_playerModel.Position))
+                    return zone;
+            }
+            return null;
+        }
+
+        private void HandlePlayerAttack(MouseState mouseState)
+        {
+            bool mouseClick = mouseState.LeftButton == ButtonState.Pressed
+                              && _previousMouseState.LeftButton == ButtonState.Released;
+            if (!mouseClick) return;
+
+            _playerModel.StartAttack(GetCurrentZone());
+            if (!_playerModel.IsAttacking) return;
+
+            float range = _playerModel.GetAttackRange();
+            float damage = _playerModel.GetAttackDamage();
+            var dir = _playerModel.GetAttackDirectionVector();
+            var playerPos = _playerModel.Position;
+            var attackCenter = playerPos + dir * range * 0.5f;
+
+            if (!_enemyModel.IsDead)
+            {
+                var enemyPos = _enemyModel.Position;
+                float dist = System.Numerics.Vector2.Distance(attackCenter, enemyPos);
+                if (dist < range * 0.5f + 20f)
+                {
+                    var kbDir = enemyPos - playerPos;
+                    _enemyModel.TakeDamage(damage, kbDir);
+                }
+            }
+        }
+
+        private void UpdateEnemyAI(float dt, int sw, int sh)
+        {
+            if (_enemyModel.IsDead) return;
+
+            _enemyModel.Update(dt);
+            _enemyController.Update(dt, _playerModel, _npcModel, sw, sh);
         }
 
         protected override void Update(GameTime gameTime)
@@ -91,9 +147,11 @@ namespace Somnia.Game
                         Rectangle npcRect = new Rectangle((int)_npcModel.Position.X, (int)_npcModel.Position.Y, 40, 40);
                         if (npcRect.Intersects(_damageZone)) _npcModel.TakeDamage(_damagePerSecond * deltaTime);
                     }
-            
+
                     // Движение и взаимодействие
                     _playerController.Update(deltaTime, screenWidth, _graphics.PreferredBackBufferHeight);
+                    HandlePlayerAttack(currentMouseState);
+                    UpdateEnemyAI(deltaTime, screenWidth, _graphics.PreferredBackBufferHeight);
 
                     float distance = System.Numerics.Vector2.Distance(_playerModel.Position, _npcModel.Position);
                     if (currentKeyboardState.IsKeyDown(Keys.E) && _previousKeyboardState.IsKeyUp(Keys.E))
@@ -112,7 +170,7 @@ namespace Somnia.Game
                     }
 
                     // Проверка на смерть
-                    if (_playerModel.IsDead || _npcModel.IsDead)
+                    if (_playerModel.IsDead || _npcModel.IsDead || _enemyModel.IsDead)
                     {
                         _gameState = GameState.GameOver;
                     }
@@ -162,9 +220,14 @@ namespace Somnia.Game
             Point mPos = Mouse.GetState().Position;
 
             // Всегда рисуем мир (он будет под меню)
-            _view.DrawDamageZone(_spriteBatch, _damageZone); 
+            foreach (var zone in _anomalyZones)
+                _view.DrawAnomalyZone(_spriteBatch, zone);
+
+            _view.DrawDamageZone(_spriteBatch, _damageZone);
+            _view.DrawEnemy(_spriteBatch, _enemyModel);
             _view.DrawNpc(_spriteBatch, _npcModel);
             _view.DrawPlayer(_spriteBatch, _playerModel);
+            _view.DrawPlayerAttack(_spriteBatch, _playerModel);
             _view.DrawPlayerUI(_spriteBatch, _playerModel);
 
             // Рисуем меню поверх мира в зависимости от состояния
