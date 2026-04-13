@@ -12,10 +12,8 @@ namespace Somnia.Game
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        
-        private KeyboardState _previousKeyboardState;
-        private MouseState _previousMouseState; // НОВОЕ: память мышки
-        
+        private KeyboardState _prevKeyboard;
+        private MouseState _prevMouse;
         private PlayerModel _playerModel;
         private NpcModel _npcModel;
         private EnemyModel _enemyModel;
@@ -24,40 +22,62 @@ namespace Somnia.Game
         private PlayerView _view;
         private Rectangle _damageZone;
         private List<AnomalyZone> _anomalyZones;
-        private float _damagePerSecond = 10f;
+        private Matrix _camera;
+        private float _dps = 10f;
         private SpriteFont _font;
-        private GameState _gameState = GameState.Playing; // НОВОЕ: Текущее состояние игры
+        private GameState _gameState = GameState.Playing;
 
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
-            IsMouseVisible = true; // Мышка обязательна для меню!
-
-            _graphics.PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
-            _graphics.PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
+            IsMouseVisible = true;
+            _graphics.PreferredBackBufferWidth =
+                GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
+            _graphics.PreferredBackBufferHeight =
+                GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
             _graphics.IsFullScreen = true;
             _graphics.ApplyChanges();
         }
 
         protected override void Initialize()
         {
+            _anomalyZones = new List<AnomalyZone>();
+            _camera = Matrix.Identity;
             RestartGame();
             _damageZone = new Rectangle(400, 300, 300, 300);
-            _anomalyZones = new List<AnomalyZone>
-            {
-                new AnomalyZone(new Rectangle(150, 150, 200, 150), ZoneType.Red),
-                new AnomalyZone(new Rectangle(600, 400, 200, 150), ZoneType.Blue),
-            };
+            SetupAnomalyZones();
             base.Initialize();
         }
 
-        // Метод для сброса игры (вызывается при старте и после смерти)
+        private void SetupAnomalyZones()
+        {
+            int w = _graphics.PreferredBackBufferWidth;
+            int h = _graphics.PreferredBackBufferHeight + 4000;
+            int third = w / 3;
+            int gap = 20;
+            int y = -2000;
+
+            _anomalyZones.Add(new AnomalyZone(
+                new Rectangle(0, y, third - gap / 2, h), ZoneType.Red));
+
+            _anomalyZones.Add(new AnomalyZone(
+                new Rectangle(third + gap / 2, y, third - gap, h),
+                ZoneType.Green));
+
+            _anomalyZones.Add(new AnomalyZone(
+                new Rectangle(2 * third + gap / 2, y,
+                    third - gap / 2 + 200, h), ZoneType.Blue));
+        }
+
         private void RestartGame()
         {
-            _playerModel = new PlayerModel(new System.Numerics.Vector2(200, 200));
-            _npcModel = new NpcModel(new System.Numerics.Vector2(200, 400));
-            _enemyModel = new EnemyModel(new System.Numerics.Vector2(800, 300));
+            _playerModel = new PlayerModel(
+                new System.Numerics.Vector2(200, 200));
+            _npcModel = new NpcModel(
+                new System.Numerics.Vector2(200, 400));
+            _enemyModel = new EnemyModel(
+                new System.Numerics.Vector2(800, 300));
             _playerController = new PlayerController(_playerModel);
             _enemyController = new EnemyController(_enemyModel);
             _gameState = GameState.Playing;
@@ -67,147 +87,173 @@ namespace Somnia.Game
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _view = new PlayerView(GraphicsDevice);
-
-            // Загружаем наш скомпилированный шрифт
             _font = Content.Load<SpriteFont>("MainFont");
         }
 
-        private AnomalyZone GetCurrentZone()
+        private AnomalyZone GetPlayerZone()
         {
-            foreach (var zone in _anomalyZones)
-            {
-                if (zone.ContainsPoint(_playerModel.Position))
-                    return zone;
-            }
+            foreach (var z in _anomalyZones)
+                if (z.ContainsPoint(_playerModel.Position)) return z;
             return null;
-        }
-
-        private void HandlePlayerAttack(MouseState mouseState)
-        {
-            bool mouseClick = mouseState.LeftButton == ButtonState.Pressed
-                              && _previousMouseState.LeftButton == ButtonState.Released;
-            if (!mouseClick) return;
-
-            _playerModel.StartAttack(GetCurrentZone());
-            if (!_playerModel.IsAttacking) return;
-
-            float range = _playerModel.GetAttackRange();
-            float damage = _playerModel.GetAttackDamage();
-            var dir = _playerModel.GetAttackDirectionVector();
-            var playerPos = _playerModel.Position;
-            var attackCenter = playerPos + dir * range * 0.5f;
-
-            if (!_enemyModel.IsDead)
-            {
-                var enemyPos = _enemyModel.Position;
-                float dist = System.Numerics.Vector2.Distance(attackCenter, enemyPos);
-                if (dist < range * 0.5f + 20f)
-                {
-                    var kbDir = enemyPos - playerPos;
-                    _enemyModel.TakeDamage(damage, kbDir);
-                }
-            }
-        }
-
-        private void UpdateEnemyAI(float dt, int sw, int sh)
-        {
-            if (_enemyModel.IsDead) return;
-
-            _enemyModel.Update(dt);
-            _enemyController.Update(dt, _playerModel, _npcModel, sw, sh);
         }
 
         protected override void Update(GameTime gameTime)
         {
-            var currentKeyboardState = Keyboard.GetState();
-            var currentMouseState = Mouse.GetState();
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            int screenWidth = _graphics.PreferredBackBufferWidth;
+            KeyboardState kb = Keyboard.GetState();
+            MouseState mouse = Mouse.GetState();
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            int sw = _graphics.PreferredBackBufferWidth;
+            int sh = _graphics.PreferredBackBufferHeight;
 
-            // ЕСЛИ МЫ ИГРАЕМ
             if (_gameState == GameState.Playing)
-            {
-                // Ставим на паузу
-                if (currentKeyboardState.IsKeyDown(Keys.Escape) && _previousKeyboardState.IsKeyUp(Keys.Escape))
-                {
-                    _gameState = GameState.Paused;
-                }
-                else
-                {
-                    // Логика урона
-                    Rectangle playerRect = new Rectangle((int)_playerModel.Position.X, (int)_playerModel.Position.Y, 50, 50);
-                    if (playerRect.Intersects(_damageZone))
-                    {
-                        _playerModel.TakeDamage(_damagePerSecond * deltaTime);
-                        if (_playerModel.State == PlayerState.Carrying) _npcModel.TakeDamage(_damagePerSecond * deltaTime);
-                    }
-
-                    if (!_npcModel.IsPickedUp)
-                    {
-                        Rectangle npcRect = new Rectangle((int)_npcModel.Position.X, (int)_npcModel.Position.Y, 40, 40);
-                        if (npcRect.Intersects(_damageZone)) _npcModel.TakeDamage(_damagePerSecond * deltaTime);
-                    }
-
-                    // Движение и взаимодействие
-                    _playerController.Update(deltaTime, screenWidth, _graphics.PreferredBackBufferHeight);
-                    HandlePlayerAttack(currentMouseState);
-                    UpdateEnemyAI(deltaTime, screenWidth, _graphics.PreferredBackBufferHeight);
-
-                    float distance = System.Numerics.Vector2.Distance(_playerModel.Position, _npcModel.Position);
-                    if (currentKeyboardState.IsKeyDown(Keys.E) && _previousKeyboardState.IsKeyUp(Keys.E))
-                    {
-                        if (_playerModel.State == PlayerState.Free && distance < 70)
-                        {
-                            _npcModel.IsPickedUp = true;
-                            _playerModel.SetState(PlayerState.Carrying);
-                        }
-                        else if (_playerModel.State == PlayerState.Carrying)
-                        {
-                            _npcModel.IsPickedUp = false;
-                            _npcModel.Position = _playerModel.Position + new System.Numerics.Vector2(60, 0);
-                            _playerModel.SetState(PlayerState.Free);
-                        }
-                    }
-
-                    // Проверка на смерть
-                    if (_playerModel.IsDead || _npcModel.IsDead || _enemyModel.IsDead)
-                    {
-                        _gameState = GameState.GameOver;
-                    }
-                }
-            }
-            // ЕСЛИ МЕНЮ ПАУЗЫ
+                HandlePlaying(dt, sw, sh, kb, mouse);
             else if (_gameState == GameState.Paused)
-            {
-                // Снимаем с паузы
-                if (currentKeyboardState.IsKeyDown(Keys.Escape) && _previousKeyboardState.IsKeyUp(Keys.Escape))
-                {
-                    _gameState = GameState.Playing;
-                }
-
-                // Клики мышкой
-                if (currentMouseState.LeftButton == ButtonState.Pressed && _previousMouseState.LeftButton == ButtonState.Released)
-                {
-                    if (_view.GetResumeButton(screenWidth).Contains(currentMouseState.Position)) 
-                        _gameState = GameState.Playing; // Зеленая кнопка
-                    
-                    if (_view.GetExitButton(screenWidth).Contains(currentMouseState.Position)) 
-                        Exit(); // Красная кнопка
-                }
-            }
-            // ЕСЛИ МЕНЮ СМЕРТИ
+                HandlePaused(kb, mouse, sw);
             else if (_gameState == GameState.GameOver)
+                HandleGameOver(mouse, sw);
+
+            _prevKeyboard = kb;
+            _prevMouse = mouse;
+            base.Update(gameTime);
+        }
+
+        private void HandlePlaying(float dt, int sw, int sh,
+            KeyboardState kb, MouseState mouse)
+        {
+            if (IsKeyJustPressed(kb, Keys.Escape))
             {
-                if (currentMouseState.LeftButton == ButtonState.Pressed && _previousMouseState.LeftButton == ButtonState.Released)
-                {
-                    if (_view.GetRestartButton(screenWidth).Contains(currentMouseState.Position)) 
-                        RestartGame(); // Зеленая кнопка (Рестарт)
-                }
+                _gameState = GameState.Paused;
+                return;
             }
 
-            _previousKeyboardState = currentKeyboardState;
-            _previousMouseState = currentMouseState; // Запоминаем мышку
-            base.Update(gameTime);
+            ApplyDamageToEntities(dt);
+            _playerController.Update(dt, sw, sh);
+
+            AnomalyZone zone = GetPlayerZone();
+            _playerController.ProcessAttack(
+                mouse, _prevMouse, _camera, zone);
+
+            HandleEnemyAI(dt, sw, sh);
+            HandleNpcPickup(kb);
+            CheckDeathCondition();
+        }
+
+        private bool IsKeyJustPressed(KeyboardState kb, Keys key)
+        {
+            return kb.IsKeyDown(key)
+                && _prevKeyboard.IsKeyUp(key);
+        }
+
+        private void ApplyDamageToEntities(float dt)
+        {
+            Rectangle pRect = GetPlayerRect();
+            if (!pRect.Intersects(_damageZone))
+            {
+                ApplyNpcDamageOnly(dt);
+                return;
+            }
+
+            _playerModel.TakeDamage(_dps * dt);
+            if (_playerModel.State == PlayerState.Carrying)
+                _npcModel.TakeDamage(_dps * dt);
+            ApplyNpcDamageOnly(dt);
+        }
+
+        private void ApplyNpcDamageOnly(float dt)
+        {
+            if (_npcModel.IsPickedUp) return;
+            Rectangle nRect = GetNpcRect();
+            if (nRect.Intersects(_damageZone))
+                _npcModel.TakeDamage(_dps * dt);
+        }
+
+        private Rectangle GetPlayerRect()
+        {
+            return new Rectangle(
+                (int)_playerModel.Position.X,
+                (int)_playerModel.Position.Y, 50, 50);
+        }
+
+        private Rectangle GetNpcRect()
+        {
+            return new Rectangle(
+                (int)_npcModel.Position.X,
+                (int)_npcModel.Position.Y, 40, 40);
+        }
+
+        private void HandleEnemyAI(float dt, int sw, int sh)
+        {
+            if (_enemyModel.IsDead) return;
+            _enemyModel.Update(dt);
+            _enemyController.Update(
+                dt, _playerModel, _npcModel, sw, sh);
+        }
+
+        private void HandleNpcPickup(KeyboardState kb)
+        {
+            if (!IsKeyJustPressed(kb, Keys.E)) return;
+            float dist = System.Numerics.Vector2.Distance(
+                _playerModel.Position, _npcModel.Position);
+
+            if (_playerModel.State == PlayerState.Free && dist < 70)
+                PickupNpc();
+            else if (_playerModel.State == PlayerState.Carrying)
+                DropNpc();
+        }
+
+        private void PickupNpc()
+        {
+            _npcModel.IsPickedUp = true;
+            _playerModel.SetState(PlayerState.Carrying);
+        }
+
+        private void DropNpc()
+        {
+            _npcModel.IsPickedUp = false;
+            _npcModel.Position = _playerModel.Position
+                + new System.Numerics.Vector2(60, 0);
+            _playerModel.SetState(PlayerState.Free);
+        }
+
+        private void CheckDeathCondition()
+        {
+            if (_playerModel.IsDead || _npcModel.IsDead
+                || _enemyModel.IsDead)
+                _gameState = GameState.GameOver;
+        }
+
+        private void HandlePaused(KeyboardState kb,
+            MouseState mouse, int sw)
+        {
+            if (IsKeyJustPressed(kb, Keys.Escape))
+            {
+                _gameState = GameState.Playing;
+                return;
+            }
+
+            if (!IsMouseJustPressed(mouse)) return;
+            HandlePauseButtons(mouse, sw);
+        }
+
+        private void HandlePauseButtons(MouseState mouse, int sw)
+        {
+            if (_view.GetResumeButton(sw).Contains(mouse.Position))
+                _gameState = GameState.Playing;
+            if (_view.GetExitButton(sw).Contains(mouse.Position))
+                Exit();
+        }
+
+        private void HandleGameOver(MouseState mouse, int sw)
+        {
+            if (!IsMouseJustPressed(mouse)) return;
+            if (_view.GetRestartButton(sw).Contains(mouse.Position))
+                RestartGame();
+        }
+
+        private bool IsMouseJustPressed(MouseState mouse)
+        {
+            return mouse.LeftButton == ButtonState.Pressed
+                && _prevMouse.LeftButton == ButtonState.Released;
         }
 
         protected override void Draw(GameTime gameTime)
@@ -215,11 +261,19 @@ namespace Somnia.Game
             GraphicsDevice.Clear(Color.SlateGray);
             _spriteBatch.Begin();
 
-            int sWidth = _graphics.PreferredBackBufferWidth;
-            int sHeight = _graphics.PreferredBackBufferHeight;
+            int sw = _graphics.PreferredBackBufferWidth;
+            int sh = _graphics.PreferredBackBufferHeight;
             Point mPos = Mouse.GetState().Position;
 
-            // Всегда рисуем мир (он будет под меню)
+            DrawWorld();
+            DrawMenus(sw, sh, mPos);
+
+            _spriteBatch.End();
+            base.Draw(gameTime);
+        }
+
+        private void DrawWorld()
+        {
             foreach (var zone in _anomalyZones)
                 _view.DrawAnomalyZone(_spriteBatch, zone);
 
@@ -229,20 +283,14 @@ namespace Somnia.Game
             _view.DrawPlayer(_spriteBatch, _playerModel);
             _view.DrawPlayerAttack(_spriteBatch, _playerModel);
             _view.DrawPlayerUI(_spriteBatch, _playerModel);
+        }
 
-            // Рисуем меню поверх мира в зависимости от состояния
-            // Рисуем меню поверх мира в зависимости от состояния
+        private void DrawMenus(int sw, int sh, Point mPos)
+        {
             if (_gameState == GameState.Paused)
-            {
-                _view.DrawPauseMenu(_spriteBatch, _font, sWidth, sHeight, mPos);
-            }
+                _view.DrawPauseMenu(_spriteBatch, _font, sw, sh, mPos);
             else if (_gameState == GameState.GameOver)
-            {
-                _view.DrawGameOver(_spriteBatch, _font, sWidth, sHeight, mPos);
-            }
-
-            _spriteBatch.End();
-            base.Draw(gameTime);
+                _view.DrawGameOver(_spriteBatch, _font, sw, sh, mPos);
         }
     }
 }

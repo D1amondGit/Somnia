@@ -1,6 +1,6 @@
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Somnia.Game.Models;
-using System;
 using System.Numerics;
 
 namespace Somnia.Game.Controllers
@@ -9,48 +9,71 @@ namespace Somnia.Game.Controllers
     {
         private PlayerModel _model;
 
-        public PlayerController(PlayerModel model)
+        public PlayerController(PlayerModel model) => _model = model;
+
+        public void Update(float dt, int sw, int sh)
         {
-            _model = model;
+            var kb = Keyboard.GetState();
+            var dir = GetMovementDirection(kb);
+            HandleDash(kb, dir);
+            _model.Move(dir, dt, sw, sh);
         }
 
-        public void Update(float deltaTime, int screenWidth, int screenHeight)
+        public void ProcessAttack(
+            MouseState mouse, MouseState prevMouse,
+            Matrix camera, AnomalyZone zone)
         {
-            var keyboardState = Keyboard.GetState();
-            var direction = Vector2.Zero;
-
-            if (keyboardState.IsKeyDown(Keys.W)) direction.Y -= 1;
-            if (keyboardState.IsKeyDown(Keys.S)) direction.Y += 1;
-            if (keyboardState.IsKeyDown(Keys.A)) direction.X -= 1;
-            if (keyboardState.IsKeyDown(Keys.D)) direction.X += 1;
-
-            UpdateFacingDirection(direction);
-
-            // Считываем рывок
-            if (keyboardState.IsKeyDown(Keys.LeftShift))
-            {
-                _model.StartDash(direction);
-            }
-
-            _model.Move(direction, deltaTime, screenWidth, screenHeight);
+            if (!IsMouseClicked(mouse, prevMouse)) return;
+            System.Numerics.Vector2 dir =
+                ComputeAttackDirection(mouse, camera);
+            _model.StartAttack(dir, zone);
         }
 
-        private void UpdateFacingDirection(Vector2 direction)
+        private bool IsMouseClicked(MouseState cur, MouseState prev)
         {
-            if (direction == Vector2.Zero) return;
+            return cur.LeftButton == ButtonState.Pressed
+                && prev.LeftButton == ButtonState.Released;
+        }
 
-            if (Math.Abs(direction.X) > Math.Abs(direction.Y))
-            {
-                _model.FacingDirection = direction.X > 0
-                    ? FacingDirection.Right
-                    : FacingDirection.Left;
-            }
-            else
-            {
-                _model.FacingDirection = direction.Y > 0
-                    ? FacingDirection.Down
-                    : FacingDirection.Up;
-            }
+        private System.Numerics.Vector2 ComputeAttackDirection(
+            MouseState mouse, Matrix camera)
+        {
+            System.Numerics.Vector2 worldMouse =
+                GetWorldMousePos(mouse, camera);
+            System.Numerics.Vector2 dir =
+                worldMouse - _model.Position;
+            if (dir.LengthSquared() < 1f)
+                return System.Numerics.Vector2.Zero;
+            return System.Numerics.Vector2.Normalize(dir);
+        }
+
+        private static System.Numerics.Vector2 GetWorldMousePos(
+            MouseState mouse, Matrix camera)
+        {
+            var xnaPos = new Microsoft.Xna.Framework.Vector2(
+                mouse.Position.X, mouse.Position.Y);
+            var xnaWorld = Microsoft.Xna.Framework.Vector2.Transform(
+                xnaPos, Matrix.Invert(camera));
+            return new System.Numerics.Vector2(
+                xnaWorld.X, xnaWorld.Y);
+        }
+
+        private static System.Numerics.Vector2 GetMovementDirection(
+            KeyboardState kb)
+        {
+            var dir = System.Numerics.Vector2.Zero;
+            if (kb.IsKeyDown(Keys.W)) dir.Y -= 1;
+            if (kb.IsKeyDown(Keys.S)) dir.Y += 1;
+            if (kb.IsKeyDown(Keys.A)) dir.X -= 1;
+            if (kb.IsKeyDown(Keys.D)) dir.X += 1;
+            return dir;
+        }
+
+        private void HandleDash(
+            KeyboardState kb, System.Numerics.Vector2 dir)
+        {
+            if (kb.IsKeyDown(Keys.LeftShift))
+                _model.StartDash(dir);
         }
     }
 }
