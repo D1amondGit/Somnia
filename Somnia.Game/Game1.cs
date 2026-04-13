@@ -12,285 +12,89 @@ namespace Somnia.Game
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        private KeyboardState _prevKeyboard;
-        private MouseState _prevMouse;
-        private PlayerModel _playerModel;
-        private NpcModel _npcModel;
-        private EnemyModel _enemyModel;
-        private PlayerController _playerController;
-        private EnemyController _enemyController;
+        private PlayerModel _p;
+        private NpcModel _npc;
+        private PlayerController _pCtrl;
+        private EnemyController _eCtrl;
         private PlayerView _view;
-        private Rectangle _damageZone;
-        private List<AnomalyZone> _anomalyZones;
-        private Matrix _camera;
-        private float _dps = 10f;
+        private List<EnemyModel> _enemies;
+        private List<AnomalyZone> _zones;
         private SpriteFont _font;
-        private GameState _gameState = GameState.Playing;
+        private Vector2 _camPos;
 
-        public Game1()
-        {
-            _graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
-            IsMouseVisible = true;
-            _graphics.PreferredBackBufferWidth =
-                GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
-            _graphics.PreferredBackBufferHeight =
-                GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
-            _graphics.IsFullScreen = true;
-            _graphics.ApplyChanges();
+        public Game1() 
+        { 
+            _graphics = new GraphicsDeviceManager(this); 
+            _graphics.PreferredBackBufferWidth = 1280; 
+            _graphics.PreferredBackBufferHeight = 720;
+            Content.RootDirectory = "Content"; 
+            IsMouseVisible = true; 
         }
 
-        protected override void Initialize()
+        protected override void Initialize() { Restart(); base.Initialize(); }
+        
+        private void Restart() 
         {
-            _anomalyZones = new List<AnomalyZone>();
-            _camera = Matrix.Identity;
-            RestartGame();
-            _damageZone = new Rectangle(400, 300, 300, 300);
-            SetupAnomalyZones();
-            base.Initialize();
+            _p = new PlayerModel(new Vector2(400, 300));
+            _npc = new NpcModel(new Vector2(600, 400));
+            _pCtrl = new PlayerController(_p);
+            _eCtrl = new EnemyController();
+            
+            _enemies = new List<EnemyModel> { new EnemyModel(new Vector2(800, 400)), new EnemyModel(new Vector2(850, 450)) };
+            
+            _zones = new List<AnomalyZone> {
+                new AnomalyZone(new Rectangle(-1000, -2000, 1600, 4000), AnomalyType.Red),
+                new AnomalyZone(new Rectangle(600, -2000, 400, 4000), AnomalyType.Neutral),
+                new AnomalyZone(new Rectangle(1000, -2000, 2000, 4000), AnomalyType.Blue)
+            };
+            _camPos = _p.Position - new Vector2(640, 360);
         }
 
-        private void SetupAnomalyZones()
-        {
-            int w = _graphics.PreferredBackBufferWidth;
-            int h = _graphics.PreferredBackBufferHeight + 4000;
-            int third = w / 3;
-            int gap = 20;
-            int y = -2000;
-
-            _anomalyZones.Add(new AnomalyZone(
-                new Rectangle(0, y, third - gap / 2, h), ZoneType.Red));
-
-            _anomalyZones.Add(new AnomalyZone(
-                new Rectangle(third + gap / 2, y, third - gap, h),
-                ZoneType.Green));
-
-            _anomalyZones.Add(new AnomalyZone(
-                new Rectangle(2 * third + gap / 2, y,
-                    third - gap / 2 + 200, h), ZoneType.Blue));
-        }
-
-        private void RestartGame()
-        {
-            _playerModel = new PlayerModel(
-                new System.Numerics.Vector2(200, 200));
-            _npcModel = new NpcModel(
-                new System.Numerics.Vector2(200, 400));
-            _enemyModel = new EnemyModel(
-                new System.Numerics.Vector2(800, 300));
-            _playerController = new PlayerController(_playerModel);
-            _enemyController = new EnemyController(_enemyModel);
-            _gameState = GameState.Playing;
-        }
-
-        protected override void LoadContent()
-        {
-            _spriteBatch = new SpriteBatch(GraphicsDevice);
+        protected override void LoadContent() 
+        { 
+            _spriteBatch = new SpriteBatch(GraphicsDevice); 
             _view = new PlayerView(GraphicsDevice);
-            _font = Content.Load<SpriteFont>("MainFont");
+            try { _font = Content.Load<SpriteFont>("MainFont"); } catch { }
         }
 
-        private AnomalyZone GetPlayerZone()
+        protected override void Update(GameTime gt) 
         {
-            foreach (var z in _anomalyZones)
-                if (z.ContainsPoint(_playerModel.Position)) return z;
-            return null;
+            if (Keyboard.GetState().IsKeyDown(Keys.Escape)) Exit();
+            float dt = (float)gt.ElapsedGameTime.TotalSeconds;
+            
+            Matrix cam = Matrix.CreateTranslation(new Vector3(-_camPos, 0));
+            
+            _pCtrl.Update(dt, 3000, 3000, _enemies, cam);
+            _eCtrl.Update(dt, _enemies, _p, _npc);
+            
+            foreach(var e in _enemies) e.Update(dt);
+            UpdateZone();
+            
+            _camPos = Vector2.Lerp(_camPos, _p.Position - new Vector2(640, 360), 0.05f);
+            base.Update(gt);
         }
 
-        protected override void Update(GameTime gameTime)
+        private void UpdateZone() 
         {
-            KeyboardState kb = Keyboard.GetState();
-            MouseState mouse = Mouse.GetState();
-            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            int sw = _graphics.PreferredBackBufferWidth;
-            int sh = _graphics.PreferredBackBufferHeight;
-
-            if (_gameState == GameState.Playing)
-                HandlePlaying(dt, sw, sh, kb, mouse);
-            else if (_gameState == GameState.Paused)
-                HandlePaused(kb, mouse, sw);
-            else if (_gameState == GameState.GameOver)
-                HandleGameOver(mouse, sw);
-
-            _prevKeyboard = kb;
-            _prevMouse = mouse;
-            base.Update(gameTime);
+            _p.CurrentZone = AnomalyType.Neutral;
+            foreach(var z in _zones) 
+                if (z.Area.Contains(_p.Position.X, _p.Position.Y)) _p.CurrentZone = z.Type;
         }
 
-        private void HandlePlaying(float dt, int sw, int sh,
-            KeyboardState kb, MouseState mouse)
+        protected override void Draw(GameTime gt) 
         {
-            if (IsKeyJustPressed(kb, Keys.Escape))
-            {
-                _gameState = GameState.Paused;
-                return;
-            }
-
-            ApplyDamageToEntities(dt);
-            _playerController.Update(dt, sw, sh);
-
-            AnomalyZone zone = GetPlayerZone();
-            _playerController.ProcessAttack(
-                mouse, _prevMouse, _camera, zone);
-
-            HandleEnemyAI(dt, sw, sh);
-            HandleNpcPickup(kb);
-            CheckDeathCondition();
-        }
-
-        private bool IsKeyJustPressed(KeyboardState kb, Keys key)
-        {
-            return kb.IsKeyDown(key)
-                && _prevKeyboard.IsKeyUp(key);
-        }
-
-        private void ApplyDamageToEntities(float dt)
-        {
-            Rectangle pRect = GetPlayerRect();
-            if (!pRect.Intersects(_damageZone))
-            {
-                ApplyNpcDamageOnly(dt);
-                return;
-            }
-
-            _playerModel.TakeDamage(_dps * dt);
-            if (_playerModel.State == PlayerState.Carrying)
-                _npcModel.TakeDamage(_dps * dt);
-            ApplyNpcDamageOnly(dt);
-        }
-
-        private void ApplyNpcDamageOnly(float dt)
-        {
-            if (_npcModel.IsPickedUp) return;
-            Rectangle nRect = GetNpcRect();
-            if (nRect.Intersects(_damageZone))
-                _npcModel.TakeDamage(_dps * dt);
-        }
-
-        private Rectangle GetPlayerRect()
-        {
-            return new Rectangle(
-                (int)_playerModel.Position.X,
-                (int)_playerModel.Position.Y, 50, 50);
-        }
-
-        private Rectangle GetNpcRect()
-        {
-            return new Rectangle(
-                (int)_npcModel.Position.X,
-                (int)_npcModel.Position.Y, 40, 40);
-        }
-
-        private void HandleEnemyAI(float dt, int sw, int sh)
-        {
-            if (_enemyModel.IsDead) return;
-            _enemyModel.Update(dt);
-            _enemyController.Update(
-                dt, _playerModel, _npcModel, sw, sh);
-        }
-
-        private void HandleNpcPickup(KeyboardState kb)
-        {
-            if (!IsKeyJustPressed(kb, Keys.E)) return;
-            float dist = System.Numerics.Vector2.Distance(
-                _playerModel.Position, _npcModel.Position);
-
-            if (_playerModel.State == PlayerState.Free && dist < 70)
-                PickupNpc();
-            else if (_playerModel.State == PlayerState.Carrying)
-                DropNpc();
-        }
-
-        private void PickupNpc()
-        {
-            _npcModel.IsPickedUp = true;
-            _playerModel.SetState(PlayerState.Carrying);
-        }
-
-        private void DropNpc()
-        {
-            _npcModel.IsPickedUp = false;
-            _npcModel.Position = _playerModel.Position
-                + new System.Numerics.Vector2(60, 0);
-            _playerModel.SetState(PlayerState.Free);
-        }
-
-        private void CheckDeathCondition()
-        {
-            if (_playerModel.IsDead || _npcModel.IsDead
-                || _enemyModel.IsDead)
-                _gameState = GameState.GameOver;
-        }
-
-        private void HandlePaused(KeyboardState kb,
-            MouseState mouse, int sw)
-        {
-            if (IsKeyJustPressed(kb, Keys.Escape))
-            {
-                _gameState = GameState.Playing;
-                return;
-            }
-
-            if (!IsMouseJustPressed(mouse)) return;
-            HandlePauseButtons(mouse, sw);
-        }
-
-        private void HandlePauseButtons(MouseState mouse, int sw)
-        {
-            if (_view.GetResumeButton(sw).Contains(mouse.Position))
-                _gameState = GameState.Playing;
-            if (_view.GetExitButton(sw).Contains(mouse.Position))
-                Exit();
-        }
-
-        private void HandleGameOver(MouseState mouse, int sw)
-        {
-            if (!IsMouseJustPressed(mouse)) return;
-            if (_view.GetRestartButton(sw).Contains(mouse.Position))
-                RestartGame();
-        }
-
-        private bool IsMouseJustPressed(MouseState mouse)
-        {
-            return mouse.LeftButton == ButtonState.Pressed
-                && _prevMouse.LeftButton == ButtonState.Released;
-        }
-
-        protected override void Draw(GameTime gameTime)
-        {
-            GraphicsDevice.Clear(Color.SlateGray);
-            _spriteBatch.Begin();
-
-            int sw = _graphics.PreferredBackBufferWidth;
-            int sh = _graphics.PreferredBackBufferHeight;
-            Point mPos = Mouse.GetState().Position;
-
-            DrawWorld();
-            DrawMenus(sw, sh, mPos);
-
+            GraphicsDevice.Clear(Color.DarkSlateGray);
+            Matrix cam = Matrix.CreateTranslation(new Vector3(-_camPos, 0));
+            
+            _spriteBatch.Begin(transformMatrix: cam);
+            _view.DrawWorld(_spriteBatch, _p, _enemies, _zones);
             _spriteBatch.End();
-            base.Draw(gameTime);
-        }
 
-        private void DrawWorld()
-        {
-            foreach (var zone in _anomalyZones)
-                _view.DrawAnomalyZone(_spriteBatch, zone);
+            _spriteBatch.Begin();
+            _view.DrawUI(_spriteBatch, _p, _font);
+            _spriteBatch.End();
 
-            _view.DrawDamageZone(_spriteBatch, _damageZone);
-            _view.DrawEnemy(_spriteBatch, _enemyModel);
-            _view.DrawNpc(_spriteBatch, _npcModel);
-            _view.DrawPlayer(_spriteBatch, _playerModel);
-            _view.DrawPlayerAttack(_spriteBatch, _playerModel);
-            _view.DrawPlayerUI(_spriteBatch, _playerModel);
-        }
-
-        private void DrawMenus(int sw, int sh, Point mPos)
-        {
-            if (_gameState == GameState.Paused)
-                _view.DrawPauseMenu(_spriteBatch, _font, sw, sh, mPos);
-            else if (_gameState == GameState.GameOver)
-                _view.DrawGameOver(_spriteBatch, _font, sw, sh, mPos);
+            base.Draw(gt);
         }
     }
 }

@@ -1,24 +1,16 @@
 using Microsoft.Xna.Framework;
-using System.Numerics;
 
 namespace Somnia.Game.Models
 {
-    public enum ZoneType { Neutral, Red, Green, Blue }
-
     public class AnomalyZone
     {
-        public Rectangle Bounds { get; }
-        public ZoneType Type { get; }
+        public Rectangle Area { get; set; }
+        public AnomalyType Type { get; set; }
 
-        public AnomalyZone(Rectangle bounds, ZoneType type)
+        public AnomalyZone(Rectangle area, AnomalyType type)
         {
-            Bounds = bounds;
+            Area = area;
             Type = type;
-        }
-
-        public bool ContainsPoint(System.Numerics.Vector2 point)
-        {
-            return Bounds.Contains((int)point.X, (int)point.Y);
         }
     }
 }
