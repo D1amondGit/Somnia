@@ -32,7 +32,7 @@ namespace Somnia.Game.Controllers
             HandleInteraction(ks, npc);
             
             _model.Move(GetDir(ks), dt, w, h);
-            _model.UpdateSkills(dt, enemies); // Обновляем Ауру!
+            _model.UpdateSkills(dt, enemies); 
             
             _prevM = ms; 
             _prevK = ks;

@@ -15,7 +15,7 @@ namespace Somnia.Game.Models
         public float SlowTimer { get; set; }
         public bool IsDummy { get; set; } = false; 
 
-        // СИСТЕМА ЗАРАЖЕНИЯ
+      
         public bool IsInfected { get; set; }
         public float InfectionTimer { get; set; }
         

@@ -30,7 +30,7 @@ namespace Somnia.Game.Models
         
         public bool IsDashing { get; private set; }
         public bool IsAttacking => _attackTimer > 0;
-        public float GreenAuraTimer { get; private set; } // Таймер защитной ауры
+        public float GreenAuraTimer { get; private set; } 
 
         private float _dashTimer, _dashCd, _attackTimer;
         private Vector2 _dashDir;
@@ -61,13 +61,13 @@ namespace Somnia.Game.Models
                 GreenAuraTimer -= dt;
                 foreach (var e in enemies)
                 {
-                    if (Vector2.Distance(Position, e.Position) < 200f) // Радиус ауры
+                    if (Vector2.Distance(Position, e.Position) < 200f)
                     {
                         Vector2 pushDir = e.Position - Position;
                         if (pushDir != Vector2.Zero)
                         {
-                            e.Position += Vector2.Normalize(pushDir) * 400f * dt; // Непрерывно выталкиваем
-                            e.TakeDamage(15f * dt, Position, 0f); // Урон внутри ауры
+                            e.Position += Vector2.Normalize(pushDir) * 400f * dt;
+                            e.TakeDamage(15f * dt, Position, 0f);
                         }
                     }
                 }
@@ -93,19 +93,19 @@ namespace Somnia.Game.Models
 
         private bool UseRed(Vector2 dir, List<EnemyModel> enemies, NpcModel npc)
         {
-            if (ActiveSlot == 0 && ConsumeMana(10f)) { // Дробовик (распределенный урон)
+            if (ActiveSlot == 0 && ConsumeMana(10f)) { 
                 var hits = new List<EnemyModel>();
                 foreach (var e in enemies) if (Vector2.Distance(Position, e.Position) < 200f && Vector2.Dot(dir, Vector2.Normalize(e.Position - Position)) > 0.5f) hits.Add(e);
                 if (hits.Count > 0) { float dmg = 100f / hits.Count; foreach (var e in hits) e.TakeDamage(dmg, Position, 900f); }
                 MaxCd1 = 0.5f; return true; 
             }
-            if (ActiveSlot == 1 && ConsumeMana(20f)) { // Лассо (Снайперское прицеливание!)
-                object t = GetClosestEntity(dir, enemies, npc, 600f, 0.7f); // Широкий угол (0.7), но выбирает самого точного по прицелу
+            if (ActiveSlot == 1 && ConsumeMana(20f)) { 
+                object t = GetClosestEntity(dir, enemies, npc, 600f, 0.7f);
                 if (t is EnemyModel em) em.Position = Vector2.Lerp(em.Position, Position, 0.85f);
                 if (t is NpcModel nm) nm.Position = Vector2.Lerp(nm.Position, Position, 0.85f);
                 MaxCd2 = 2f; return true; 
             }
-            if (ActiveSlot == 2 && ConsumeMana(50f)) { // Взрыв лазером (Снайперка)
+            if (ActiveSlot == 2 && ConsumeMana(50f)) { 
                 object target = GetClosestEntity(dir, enemies, null, 2000f, 0.95f);
                 if (target is EnemyModel em) em.TakeDamage(200f, Position, 0f);
                 MaxCd3 = 5f; return true; 
@@ -115,20 +115,20 @@ namespace Somnia.Game.Models
 
         private bool UseGreen(Vector2 dir, List<EnemyModel> enemies)
         {
-            if (ActiveSlot == 0 && ConsumeMana(10f)) { // Дальняя атака
+            if (ActiveSlot == 0 && ConsumeMana(10f)) {
                 object target = GetClosestEntity(dir, enemies, null, 1000f, 0.9f);
                 if (target is EnemyModel em) em.TakeDamage(40f, Position, 200f);
                 MaxCd1 = 0.8f; return true; 
             }
-            if (ActiveSlot == 1 && ConsumeMana(30f)) { // Выталкивающая защитная аура
+            if (ActiveSlot == 1 && ConsumeMana(30f)) { 
                 GreenAuraTimer = 4f; 
                 MaxCd2 = 5f; return true; 
             }
-            if (ActiveSlot == 2 && ConsumeMana(40f)) { // Цепное заражение
+            if (ActiveSlot == 2 && ConsumeMana(40f)) { 
                 object target = GetClosestEntity(dir, enemies, null, 1000f, 0.9f);
                 if (target is EnemyModel em) {
                     em.IsInfected = true;
-                    em.InfectionTimer = 0.1f; // Быстрый старт цепи
+                    em.InfectionTimer = 0.1f;
                 }
                 MaxCd3 = 4f; return true; 
             }
@@ -152,16 +152,14 @@ namespace Somnia.Game.Models
 
         private bool ConsumeMana(float a) { if (CurrentMana >= a) { CurrentMana -= a; return true; } return false; }
 
-        // ИДЕАЛЬНАЯ ЛОГИКА ПРИЦЕЛИВАНИЯ: Выбирает того, чей вектор максимально совпадает с направлением мыши
         private object GetClosestEntity(Vector2 aimDir, List<EnemyModel> enemies, NpcModel npc, float maxRange, float minDot) {
             object best = null; 
-            float bestDot = minDot; // Чем ближе к 1.0, тем точнее наведен прицел
+            float bestDot = minDot;
             
             foreach (var e in enemies) {
                 Vector2 toE = e.Position - Position;
                 if (toE.Length() > 0 && toE.Length() < maxRange) {
                     float dot = Vector2.Dot(aimDir, Vector2.Normalize(toE));
-                    // Берем цель, которая "прямее" по линии прицела
                     if (dot > bestDot) { bestDot = dot; best = e; }
                 }
             } 
