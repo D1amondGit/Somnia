@@ -13,6 +13,12 @@ namespace Somnia.Game.Models
         
         public float StunTimer { get; set; }
         public float SlowTimer { get; set; }
+        public bool IsDummy { get; set; } = false; 
+
+        // СИСТЕМА ЗАРАЖЕНИЯ
+        public bool IsInfected { get; set; }
+        public float InfectionTimer { get; set; }
+        
         private Vector2 _velocity;
 
         public EnemyModel(Vector2 start) => Position = start;

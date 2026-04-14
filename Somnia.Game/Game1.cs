@@ -21,7 +21,7 @@ namespace Somnia.Game
         private List<AnomalyZone> _zones;
         private SpriteFont _font;
         private KeyboardState _prevK;
-        private GameState _state; // Добавили стейт машины
+        private GameState _state; 
 
         public Game1() 
         { 
@@ -41,9 +41,21 @@ namespace Somnia.Game
             _pCtrl = new PlayerController(_p);
             _eCtrl = new EnemyController();
             
-            _enemies = new List<EnemyModel> { 
-                new EnemyModel(new Vector2(1000, 400)), new EnemyModel(new Vector2(1100, 600)) 
-            };
+            _enemies = new List<EnemyModel>();
+            
+            // 3 МАНЕКЕНА В КАЖДУЮ ЗОНУ (Оранжевые квадраты, 10к ХП)
+            _enemies.Add(new EnemyModel(new Vector2(200, 500)) { Health=10000, MaxHealth=10000, IsDummy=true }); // Красная зона
+            _enemies.Add(new EnemyModel(new Vector2(600, 500)) { Health=10000, MaxHealth=10000, IsDummy=true }); // Зеленая зона
+            _enemies.Add(new EnemyModel(new Vector2(1000, 500)) { Health=10000, MaxHealth=10000, IsDummy=true }); // Синяя зона
+
+            // Куча обычных монстров
+            _enemies.Add(new EnemyModel(new Vector2(900, 100)));
+            _enemies.Add(new EnemyModel(new Vector2(1000, 200)));
+            _enemies.Add(new EnemyModel(new Vector2(1100, 300)));
+            _enemies.Add(new EnemyModel(new Vector2(950, 400)));
+            _enemies.Add(new EnemyModel(new Vector2(1050, 500)));
+            _enemies.Add(new EnemyModel(new Vector2(1150, 600)));
+            _enemies.Add(new EnemyModel(new Vector2(850, 650)));
             
             _zones = new List<AnomalyZone> {
                 new AnomalyZone(new Rectangle(0, 0, 426, 720), AnomalyType.Red),
@@ -51,7 +63,7 @@ namespace Somnia.Game
                 new AnomalyZone(new Rectangle(852, 0, 428, 720), AnomalyType.Blue)
             };
             
-            _state = GameState.Playing; // При рестарте снимаем паузу
+            _state = GameState.Playing; 
         }
 
         protected override void LoadContent() 
@@ -64,15 +76,10 @@ namespace Somnia.Game
         protected override void Update(GameTime gt) 
         {
             var ks = Keyboard.GetState();
-            
-            // Тоггл паузы
             if (ks.IsKeyDown(Keys.Escape) && _prevK.IsKeyUp(Keys.Escape))
                 _state = _state == GameState.Playing ? GameState.Paused : GameState.Playing;
 
-            // Рестарт из паузы
             if (_state == GameState.Paused && ks.IsKeyDown(Keys.R)) Restart();
-            
-            // Если играем - обновляем всю логику
             if (_state == GameState.Playing) UpdatePlaying(gt);
 
             _prevK = ks;
@@ -81,7 +88,8 @@ namespace Somnia.Game
 
         private void UpdatePlaying(GameTime gt)
         {
-            if (_p.IsDead) { Restart(); return; }
+            if (_p.IsDead || (_npc != null && _npc.IsDead)) { Restart(); return; }
+            
             float dt = (float)gt.ElapsedGameTime.TotalSeconds;
             
             _pCtrl.Update(dt, 1280, 720, _enemies, Matrix.Identity, _npc);
@@ -98,12 +106,9 @@ namespace Somnia.Game
         {
             GraphicsDevice.Clear(Color.DarkSlateGray);
             _sb.Begin();
-            
             _view.DrawWorld(_sb, _p, _enemies, _zones, _npc);
             _view.DrawUI(_sb, _p, _font, 1280, 720); 
-            
-            if (_state == GameState.Paused) _view.DrawPauseMenu(_sb, _font, 1280, 720); // Поверх всего рисуем меню
-            
+            if (_state == GameState.Paused) _view.DrawPauseMenu(_sb, _font, 1280, 720); 
             _sb.End();
             base.Draw(gt);
         }

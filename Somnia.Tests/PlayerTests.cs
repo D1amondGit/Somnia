@@ -1,6 +1,7 @@
-using System.Numerics;
+using Microsoft.Xna.Framework;
 using NUnit.Framework;
 using Somnia.Game.Models;
+using System.Collections.Generic;
 
 namespace Somnia.Tests
 {
@@ -13,7 +14,8 @@ namespace Somnia.Tests
             var player = new PlayerModel(Vector2.Zero);
             player.TakeDamage(20f);
             
-            Assert.Equals(80f, player.CurrentHealth);
+            // В NUnit 4+ правильно использовать Assert.That
+            Assert.That(player.CurrentHealth, Is.EqualTo(80f));
         }
 
         [Test]
@@ -23,8 +25,8 @@ namespace Somnia.Tests
             // Двигаемся вправо 1 секунду. Базовая скорость 500.
             player.Move(new Vector2(1, 0), 1f, 2000, 2000);
             
-            Assert.Equals(500f, player.Position.X);
-            Assert.Equals(0f, player.Position.Y);
+            Assert.That(player.Position.X, Is.EqualTo(500f));
+            Assert.That(player.Position.Y, Is.EqualTo(0f));
         }
 
         [Test]
@@ -33,22 +35,29 @@ namespace Somnia.Tests
             var player = new PlayerModel(Vector2.Zero);
             player.SetState(PlayerState.Carrying);
             
-            // Двигаемся вправо 1 секунду с грузом. Скорость падает в 2 раза (до 250).
+            // Двигаемся вправо 1 секунду с грузом. Скорость падает до 250.
             player.Move(new Vector2(1, 0), 1f, 2000, 2000);
             
-            Assert.Equals(250f, player.Position.X);
+            Assert.That(player.Position.X, Is.EqualTo(250f));
         }
         
         [Test]
-        public void Player_Dash_MovesFaster()
+        public void Player_BlueZoneDash_MovesFaster()
         {
             var player = new PlayerModel(Vector2.Zero);
-            player.StartDash(new Vector2(1, 0));
             
-            // Во время рывка скорость х4 (2000). За 0.1 секунды пролетим 200 пикселей.
+            // Настраиваем игрока для рывка (Синяя зона, 2-й слот)
+            player.CurrentZone = AnomalyType.Blue;
+            player.ActiveSlot = 1; // Индекс 1 = второй слот
+            player.CurrentMana = 100f;
+            
+            // Активируем навык вправо
+            player.UseActiveSkill(new Vector2(1, 0), new List<EnemyModel>());
+            
+            // Во время рывка скорость 2000. За 0.1 секунды пролетим 200 пикселей.
             player.Move(new Vector2(1, 0), 0.1f, 2000, 2000);
             
-            Assert.Equals(200f, player.Position.X);
+            Assert.That(player.Position.X, Is.EqualTo(200f));
         }
     }
 }

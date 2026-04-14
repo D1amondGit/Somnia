@@ -22,17 +22,18 @@ namespace Somnia.Game.Controllers
             Vector2 toMouse = worldM - _model.Position;
             _model.UpdateFacing(toMouse);
 
-            // ПЕРЕКЛЮЧЕНИЕ СЛОТОВ
             if (ks.IsKeyDown(Keys.D1)) _model.ActiveSlot = 0;
             if (ks.IsKeyDown(Keys.D2)) _model.ActiveSlot = 1;
             if (ks.IsKeyDown(Keys.D3)) _model.ActiveSlot = 2;
 
             if (ms.LeftButton == ButtonState.Pressed && _prevM.LeftButton == ButtonState.Released)
-                _model.UseActiveSkill(toMouse, enemies);
+                _model.UseActiveSkill(toMouse, enemies, npc);
 
             HandleInteraction(ks, npc);
             
             _model.Move(GetDir(ks), dt, w, h);
+            _model.UpdateSkills(dt, enemies); // Обновляем Ауру!
+            
             _prevM = ms; 
             _prevK = ks;
         }
