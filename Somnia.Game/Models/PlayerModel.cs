@@ -1,206 +1,101 @@
 using System;
 using System.Numerics;
+using System.Collections.Generic;
 
 namespace Somnia.Game.Models
 {
     public enum PlayerState { Free, Carrying }
-
     public enum GameState { Playing, Paused, GameOver }
-
-    public class NpcModel
-    {
-        public Vector2 Position { get; set; }
-        public bool IsPickedUp { get; set; }
-        public float MaxHealth { get; set; } = 100f;
-        public float CurrentHealth { get; set; }
-        public bool IsDead => CurrentHealth <= 0;
-
-        public NpcModel(Vector2 position)
-        {
-            CurrentHealth = MaxHealth;
-            Position = position;
-            IsPickedUp = false;
-        }
-
-        public void TakeDamage(float amount)
-        {
-            CurrentHealth = Math.Max(0, CurrentHealth - amount);
-        }
-    }
+    public enum AnomalyType { Red, Blue, Neutral }
 
     public class PlayerModel
     {
         public Vector2 Position { get; set; }
-        public PlayerState State { get; private set; }
-        public float BaseSpeed { get; set; } = 500f;
-        public float CurrentSpeed => State == PlayerState.Carrying
-            ? BaseSpeed * 0.5f : BaseSpeed;
+        public PlayerState State { get; private set; } = PlayerState.Free;
+        public AnomalyType CurrentZone { get; set; } = AnomalyType.Neutral;
+        public Vector2 FacingDirection { get; private set; } = Vector2.UnitX;
+
+        public float CurrentHealth { get; set; } = 100f;
         public float MaxHealth { get; set; } = 100f;
-        public float CurrentHealth { get; set; }
-        public bool IsDashing { get; private set; }
-        public Vector2 AttackDirection { get; private set; }
-        public bool IsAttacking { get; private set; }
-        public float AttackVisualTimer { get; private set; }
-
-        private float _dashTimer;
-        private float _dashCooldownTimer;
-        private float _attackCooldownTimer;
-        private ZoneType _currentZone;
-
-        private const float DashSpeedMultiplier = 4f;
-        private const float DashDuration = 0.15f;
-        private const float DashCooldown = 1.5f;
-        private const float AttackVisualDuration = 0.15f;
-        private Vector2 _dashDirection;
-
+        public float DamageMultiplier { get; set; } = 1.0f;
         public bool IsDead => CurrentHealth <= 0;
+        public bool IsDashing { get; private set; }
+        public bool IsAttacking => _attackTimer > 0;
 
-        public PlayerModel(Vector2 startPosition)
+        private float _attackTimer, _skillCooldown, _dashTimer;
+        private Vector2 _dashDir;
+        private const float BaseSpeed = 500f;
+
+        public PlayerModel(Vector2 start) => Position = start;
+
+        public void SetState(PlayerState s) => State = s;
+        public void UpdateFacing(Vector2 dir) => FacingDirection = dir == Vector2.Zero ? FacingDirection : Vector2.Normalize(dir);
+        public void TakeDamage(float amt) => CurrentHealth = Math.Max(0, CurrentHealth - amt);
+
+        public void Move(Vector2 dir, float dt, int w, int h)
         {
-            Position = startPosition;
-            State = PlayerState.Free;
-            CurrentHealth = MaxHealth;
+            UpdateTimers(dt);
+            Vector2 move = IsDashing ? _dashDir * BaseSpeed * 4 : (dir == Vector2.Zero ? Vector2.Zero : Vector2.Normalize(dir) * GetSpeed());
+            Position = ClampPos(Position + move * dt, w, h);
         }
 
-        public void TakeDamage(float amount)
+        private void UpdateTimers(float dt)
         {
-            CurrentHealth = Math.Max(0, CurrentHealth - amount);
+            if (_attackTimer > 0) _attackTimer -= dt;
+            if (_skillCooldown > 0) _skillCooldown -= dt;
+            if (_dashTimer > 0) { _dashTimer -= dt; if (_dashTimer <= 0) IsDashing = false; }
         }
 
-        public void SetState(PlayerState newState) => State = newState;
+        private float GetSpeed() => State == PlayerState.Carrying ? BaseSpeed * 0.5f : BaseSpeed;
+        private Vector2 ClampPos(Vector2 pos, int w, int h) => new Vector2(Math.Clamp(pos.X, 0, w - 50), Math.Clamp(pos.Y, 0, h - 50));
 
-        public void StartDash(Vector2 direction)
+        public void StartDash(Vector2 dir)
         {
-            if (_dashCooldownTimer > 0 || IsDashing) return;
-            if (direction == Vector2.Zero) return;
-            if (State != PlayerState.Free) return;
-
-            IsDashing = true;
-            _dashTimer = DashDuration;
-            _dashCooldownTimer = DashCooldown;
-            _dashDirection = Vector2.Normalize(direction);
+            if (State == PlayerState.Free && dir != Vector2.Zero) { IsDashing = true; _dashTimer = 0.15f; _dashDir = Vector2.Normalize(dir); }
         }
 
-        public void StartAttack(Vector2 direction, AnomalyZone zone)
+        public void UsePrimary(Vector2 toMouse, List<EnemyModel> enemies)
         {
-            if (State == PlayerState.Carrying) return;
-            if (direction == Vector2.Zero) return;
-            if (_attackCooldownTimer > 0) return;
-
-            _currentZone = zone?.Type ?? ZoneType.Neutral;
-            AttackDirection = Vector2.Normalize(direction);
-            IsAttacking = true;
-            AttackVisualTimer = AttackVisualDuration;
-            _attackCooldownTimer = GetZoneCooldown(_currentZone);
+            if (_skillCooldown > 0 || State == PlayerState.Carrying) return;
+            if (CurrentZone == AnomalyType.Red) RedShotgun(toMouse, enemies);
+            else NeutralAttack(toMouse, enemies);
+            _skillCooldown = 0.5f; _attackTimer = 0.15f;
         }
 
-        public float GetAttackDamage()
+        public void UseSecondary(Vector2 toMouse, List<EnemyModel> enemies)
         {
-            return GetZoneDamage(_currentZone);
+            if (_skillCooldown > 0 || CurrentZone != AnomalyType.Red) return;
+            RedLasso(toMouse, enemies);
+            _skillCooldown = 0.8f;
         }
 
-        private static float GetZoneDamage(ZoneType zone)
+        private void RedShotgun(Vector2 dir, List<EnemyModel> enemies)
         {
-            return zone switch
+            var nDir = Vector2.Normalize(dir);
+            foreach (var e in enemies)
             {
-                ZoneType.Red => 25f,
-                ZoneType.Green => 15f,
-                ZoneType.Blue => 8f,
-                _ => 15f,
-            };
+                Vector2 toE = e.Position - Position;
+                if (toE.Length() < 180f && Vector2.Dot(nDir, Vector2.Normalize(toE)) > 0.5f)
+                    e.TakeDamage(35f * DamageMultiplier, Position, 900f);
+            }
         }
 
-        private static float GetZoneCooldown(ZoneType zone)
+        private void RedLasso(Vector2 dir, List<EnemyModel> enemies)
         {
-            return zone switch
+            foreach (var e in enemies)
+                if (Vector2.Distance(Position, e.Position) < 400f)
+                    e.Position = Vector2.Lerp(e.Position, Position, 0.7f);
+        }
+
+        private void NeutralAttack(Vector2 dir, List<EnemyModel> enemies)
+        {
+            var nDir = Vector2.Normalize(dir == Vector2.Zero ? FacingDirection : dir);
+            foreach (var e in enemies)
             {
-                ZoneType.Red => 1.2f,
-                ZoneType.Green => 0.6f,
-                ZoneType.Blue => 0.25f,
-                _ => 0.6f,
-            };
-        }
-
-        public float GetAttackRange()
-        {
-            return _currentZone switch
-            {
-                ZoneType.Red => 100f,
-                ZoneType.Green => 70f,
-                ZoneType.Blue => 50f,
-                _ => 50f,
-            };
-        }
-
-        public float GetConeHalfAngle()
-        {
-            return _currentZone switch
-            {
-                ZoneType.Red => MathF.PI / 4f,
-                ZoneType.Green => MathF.PI / 3f,
-                ZoneType.Blue => MathF.PI / 2.4f,
-                _ => MathF.PI / 3f,
-            };
-        }
-
-        public bool IsPointInAttackCone(Vector2 targetPoint)
-        {
-            if (!IsAttacking) return false;
-            Vector2 toTarget = targetPoint - Position;
-            float dist = toTarget.Length();
-            float range = GetAttackRange();
-            if (dist > range || dist < 1f) return false;
-            return CheckAngle(toTarget, dist);
-        }
-
-        private bool CheckAngle(Vector2 toTarget, float dist)
-        {
-            Vector2 norm = toTarget / dist;
-            float dot = Vector2.Dot(AttackDirection, norm);
-            return dot >= MathF.Cos(GetConeHalfAngle());
-        }
-
-        public void Move(Vector2 direction, float deltaTime, int sw, int sh)
-        {
-            if (_dashCooldownTimer > 0) _dashCooldownTimer -= deltaTime;
-            UpdateDashState(deltaTime);
-            UpdateAttackTimers(deltaTime);
-
-            Vector2 move = ComputeMovement(direction, deltaTime);
-            if (move == Vector2.Zero) return;
-            Position = ClampPosition(Position + move, sw, sh);
-        }
-
-        private void UpdateDashState(float deltaTime)
-        {
-            if (!IsDashing) return;
-            _dashTimer -= deltaTime;
-            if (_dashTimer <= 0) IsDashing = false;
-        }
-
-        private void UpdateAttackTimers(float deltaTime)
-        {
-            if (_attackCooldownTimer > 0)
-                _attackCooldownTimer -= deltaTime;
-            if (AttackVisualTimer <= 0) return;
-            AttackVisualTimer -= deltaTime;
-            if (AttackVisualTimer <= 0) IsAttacking = false;
-        }
-
-        private Vector2 ComputeMovement(Vector2 direction, float deltaTime)
-        {
-            if (IsDashing)
-                return _dashDirection * BaseSpeed
-                    * DashSpeedMultiplier * deltaTime;
-            if (direction == Vector2.Zero) return Vector2.Zero;
-            return Vector2.Normalize(direction) * CurrentSpeed * deltaTime;
-        }
-
-        private static Vector2 ClampPosition(Vector2 pos, int sw, int sh)
-        {
-            return new Vector2(
-                Math.Clamp(pos.X, 0, sw - 50),
-                Math.Clamp(pos.Y, 0, sh - 50));
+                Vector2 toE = e.Position - Position;
+                if (toE.Length() < 120f && Vector2.Dot(nDir, Vector2.Normalize(toE)) > 0.3f)
+                    e.TakeDamage(20f * DamageMultiplier, Position, 400f);
+            }
         }
     }
 }

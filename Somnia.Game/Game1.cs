@@ -1,9 +1,10 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Somnia.Game.Models;
 using Somnia.Game.Controllers;
 using Somnia.Game.Views;
+using System;
 using System.Collections.Generic;
 
 namespace Somnia.Game
@@ -12,75 +13,57 @@ namespace Somnia.Game
     {
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
-        private KeyboardState _prevKeyboard;
-        private MouseState _prevMouse;
-        private PlayerModel _playerModel;
-        private NpcModel _npcModel;
-        private EnemyModel _enemyModel;
-        private PlayerController _playerController;
-        private EnemyController _enemyController;
+        private PlayerModel _p;
+        private PlayerController _pCtrl;
         private PlayerView _view;
-        private Rectangle _damageZone;
-        private List<AnomalyZone> _anomalyZones;
-        private Matrix _camera;
-        private float _dps = 10f;
+        private List<EnemyModel> _enemies;
+        private List<EnemyController> _enemyControllers;
+        private List<AnomalyZone> _zones;
+        private NpcModel _npc;
+        private WaveManager _waveManager;
+        private List<ResourceDropModel> _drops;
+        private List<GateModel> _gates;
         private SpriteFont _font;
-        private GameState _gameState = GameState.Playing;
+        private Vector2 _camPos;
+        private KeyboardState _prevKs;
 
         public Game1()
         {
             _graphics = new GraphicsDeviceManager(this);
+            _graphics.PreferredBackBufferWidth = 1280;
+            _graphics.PreferredBackBufferHeight = 720;
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
-            _graphics.PreferredBackBufferWidth =
-                GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
-            _graphics.PreferredBackBufferHeight =
-                GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
-            _graphics.IsFullScreen = true;
-            _graphics.ApplyChanges();
         }
 
-        protected override void Initialize()
+        protected override void Initialize() { Restart(); base.Initialize(); }
+
+        private void Restart()
         {
-            _anomalyZones = new List<AnomalyZone>();
-            _camera = Matrix.Identity;
-            RestartGame();
-            _damageZone = new Rectangle(400, 300, 300, 300);
-            SetupAnomalyZones();
-            base.Initialize();
+            _p = new PlayerModel(new System.Numerics.Vector2(400, 400));
+            _pCtrl = new PlayerController(_p);
+            _npc = new NpcModel(new System.Numerics.Vector2(350, 400));
+            _waveManager = new WaveManager();
+            _drops = new List<ResourceDropModel>();
+            _zones = CreateZones();
+            _gates = new List<GateModel> { new GateModel(new System.Numerics.Vector2(3200, 400)) };
+            SpawnNextWave();
         }
 
-        private void SetupAnomalyZones()
+        private List<AnomalyZone> CreateZones()
         {
-            int w = _graphics.PreferredBackBufferWidth;
-            int h = _graphics.PreferredBackBufferHeight + 4000;
-            int third = w / 3;
-            int gap = 20;
-            int y = -2000;
-
-            _anomalyZones.Add(new AnomalyZone(
-                new Rectangle(0, y, third - gap / 2, h), ZoneType.Red));
-
-            _anomalyZones.Add(new AnomalyZone(
-                new Rectangle(third + gap / 2, y, third - gap, h),
-                ZoneType.Green));
-
-            _anomalyZones.Add(new AnomalyZone(
-                new Rectangle(2 * third + gap / 2, y,
-                    third - gap / 2 + 200, h), ZoneType.Blue));
+            return new List<AnomalyZone>
+            {
+                new AnomalyZone(new Rectangle(0, 0, 1000, 1200), AnomalyType.Red),
+                new AnomalyZone(new Rectangle(1000, 150, 600, 500), AnomalyType.Neutral),
+                new AnomalyZone(new Rectangle(1600, 0, 2000, 1200), AnomalyType.Blue)
+            };
         }
 
-        private void RestartGame()
+        private void SpawnNextWave()
         {
-            _playerModel = new PlayerModel(
-                new System.Numerics.Vector2(200, 200));
-            _npcModel = new NpcModel(
-                new System.Numerics.Vector2(200, 400));
-            _enemyModel = new EnemyModel(
-                new System.Numerics.Vector2(800, 300));
-            _playerController = new PlayerController(_playerModel);
-            _enemyController = new EnemyController(_enemyModel);
-            _gameState = GameState.Playing;
+            _enemies = _waveManager.SpawnCurrentWave();
+            _enemyControllers = _enemies.ConvertAll(e => new EnemyController(e));
         }
 
         protected override void LoadContent()
@@ -90,207 +73,114 @@ namespace Somnia.Game
             _font = Content.Load<SpriteFont>("MainFont");
         }
 
-        private AnomalyZone GetPlayerZone()
+        protected override void Update(GameTime gt)
         {
-            foreach (var z in _anomalyZones)
-                if (z.ContainsPoint(_playerModel.Position)) return z;
-            return null;
+            float dt = (float)gt.ElapsedGameTime.TotalSeconds;
+            var ks = Keyboard.GetState();
+            Matrix cam = Matrix.CreateTranslation(new Vector3(-_camPos, 0));
+
+            _pCtrl.Update(dt, 4000, 1200, _enemies, cam);
+            HandleNpcPickup(ks);
+            UpdateNpc();
+            UpdateEnemies(dt);
+            ProcessDeadEnemies();
+            UpdateDrops();
+            UpdateGates();
+            UpdateZone();
+            UpdateDamageMultiplier();
+            _waveManager.CheckWaveCleared(_enemies);
+            if (_waveManager.WaveJustCleared && !_waveManager.AllArenasCleared)
+                SpawnNextWave();
+
+            _camPos = Vector2.Lerp(_camPos, new Vector2(_p.Position.X - 640, _p.Position.Y - 360), 0.1f);
+            _prevKs = ks;
+            base.Update(gt);
         }
 
-        protected override void Update(GameTime gameTime)
+        private void HandleNpcPickup(KeyboardState ks)
         {
-            KeyboardState kb = Keyboard.GetState();
-            MouseState mouse = Mouse.GetState();
-            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            int sw = _graphics.PreferredBackBufferWidth;
-            int sh = _graphics.PreferredBackBufferHeight;
-
-            if (_gameState == GameState.Playing)
-                HandlePlaying(dt, sw, sh, kb, mouse);
-            else if (_gameState == GameState.Paused)
-                HandlePaused(kb, mouse, sw);
-            else if (_gameState == GameState.GameOver)
-                HandleGameOver(mouse, sw);
-
-            _prevKeyboard = kb;
-            _prevMouse = mouse;
-            base.Update(gameTime);
-        }
-
-        private void HandlePlaying(float dt, int sw, int sh,
-            KeyboardState kb, MouseState mouse)
-        {
-            if (IsKeyJustPressed(kb, Keys.Escape))
+            if (_prevKs.IsKeyDown(Keys.E) || !ks.IsKeyDown(Keys.E)) return;
+            if (_p.State == PlayerState.Free && System.Numerics.Vector2.Distance(_p.Position, _npc.Position) < 80f)
             {
-                _gameState = GameState.Paused;
-                return;
+                _p.SetState(PlayerState.Carrying);
+                _npc.IsPickedUp = true;
             }
-
-            ApplyDamageToEntities(dt);
-            _playerController.Update(dt, sw, sh);
-
-            AnomalyZone zone = GetPlayerZone();
-            _playerController.ProcessAttack(
-                mouse, _prevMouse, _camera, zone);
-
-            HandleEnemyAI(dt, sw, sh);
-            HandleNpcPickup(kb);
-            CheckDeathCondition();
-        }
-
-        private bool IsKeyJustPressed(KeyboardState kb, Keys key)
-        {
-            return kb.IsKeyDown(key)
-                && _prevKeyboard.IsKeyUp(key);
-        }
-
-        private void ApplyDamageToEntities(float dt)
-        {
-            Rectangle pRect = GetPlayerRect();
-            if (!pRect.Intersects(_damageZone))
+            else if (_p.State == PlayerState.Carrying)
             {
-                ApplyNpcDamageOnly(dt);
-                return;
+                _p.SetState(PlayerState.Free);
+                _npc.IsPickedUp = false;
             }
-
-            _playerModel.TakeDamage(_dps * dt);
-            if (_playerModel.State == PlayerState.Carrying)
-                _npcModel.TakeDamage(_dps * dt);
-            ApplyNpcDamageOnly(dt);
         }
 
-        private void ApplyNpcDamageOnly(float dt)
+        private void UpdateNpc()
         {
-            if (_npcModel.IsPickedUp) return;
-            Rectangle nRect = GetNpcRect();
-            if (nRect.Intersects(_damageZone))
-                _npcModel.TakeDamage(_dps * dt);
+            if (_npc.IsPickedUp)
+                _npc.Position = _p.Position + new System.Numerics.Vector2(35, -20);
         }
 
-        private Rectangle GetPlayerRect()
+        private void UpdateEnemies(float dt)
         {
-            return new Rectangle(
-                (int)_playerModel.Position.X,
-                (int)_playerModel.Position.Y, 50, 50);
-        }
-
-        private Rectangle GetNpcRect()
-        {
-            return new Rectangle(
-                (int)_npcModel.Position.X,
-                (int)_npcModel.Position.Y, 40, 40);
-        }
-
-        private void HandleEnemyAI(float dt, int sw, int sh)
-        {
-            if (_enemyModel.IsDead) return;
-            _enemyModel.Update(dt);
-            _enemyController.Update(
-                dt, _playerModel, _npcModel, sw, sh);
-        }
-
-        private void HandleNpcPickup(KeyboardState kb)
-        {
-            if (!IsKeyJustPressed(kb, Keys.E)) return;
-            float dist = System.Numerics.Vector2.Distance(
-                _playerModel.Position, _npcModel.Position);
-
-            if (_playerModel.State == PlayerState.Free && dist < 70)
-                PickupNpc();
-            else if (_playerModel.State == PlayerState.Carrying)
-                DropNpc();
-        }
-
-        private void PickupNpc()
-        {
-            _npcModel.IsPickedUp = true;
-            _playerModel.SetState(PlayerState.Carrying);
-        }
-
-        private void DropNpc()
-        {
-            _npcModel.IsPickedUp = false;
-            _npcModel.Position = _playerModel.Position
-                + new System.Numerics.Vector2(60, 0);
-            _playerModel.SetState(PlayerState.Free);
-        }
-
-        private void CheckDeathCondition()
-        {
-            if (_playerModel.IsDead || _npcModel.IsDead
-                || _enemyModel.IsDead)
-                _gameState = GameState.GameOver;
-        }
-
-        private void HandlePaused(KeyboardState kb,
-            MouseState mouse, int sw)
-        {
-            if (IsKeyJustPressed(kb, Keys.Escape))
+            for (int i = 0; i < _enemies.Count; i++)
             {
-                _gameState = GameState.Playing;
-                return;
+                _enemies[i].Update(dt);
+                _enemyControllers[i].Update(dt, _p, _npc, 4000, 1200);
             }
-
-            if (!IsMouseJustPressed(mouse)) return;
-            HandlePauseButtons(mouse, sw);
         }
 
-        private void HandlePauseButtons(MouseState mouse, int sw)
+        private void ProcessDeadEnemies()
         {
-            if (_view.GetResumeButton(sw).Contains(mouse.Position))
-                _gameState = GameState.Playing;
-            if (_view.GetExitButton(sw).Contains(mouse.Position))
-                Exit();
+            foreach (var e in _enemies)
+            {
+                if (!e.IsDead || e.HasDropped) continue;
+                e.HasDropped = true;
+                _drops.Add(new ResourceDropModel(e.Position + new System.Numerics.Vector2(-10, 10), DropType.Health, 15f));
+                _drops.Add(new ResourceDropModel(e.Position + new System.Numerics.Vector2(10, -10), DropType.Mana, 10f));
+            }
         }
 
-        private void HandleGameOver(MouseState mouse, int sw)
+        private void UpdateDrops()
         {
-            if (!IsMouseJustPressed(mouse)) return;
-            if (_view.GetRestartButton(sw).Contains(mouse.Position))
-                RestartGame();
+            foreach (var drop in _drops)
+                drop.Update(_p.Position);
+
+            foreach (var drop in _drops)
+            {
+                if (!drop.Collected || drop.Type != DropType.Health) continue;
+                _p.CurrentHealth = Math.Min(_p.MaxHealth, _p.CurrentHealth + drop.Value);
+            }
+            _drops.RemoveAll(d => d.Collected);
         }
 
-        private bool IsMouseJustPressed(MouseState mouse)
+        private void UpdateGates()
         {
-            return mouse.LeftButton == ButtonState.Pressed
-                && _prevMouse.LeftButton == ButtonState.Released;
+            foreach (var gate in _gates)
+                gate.TryOpen(_p, _npc);
         }
 
-        protected override void Draw(GameTime gameTime)
+        private void UpdateZone()
         {
-            GraphicsDevice.Clear(Color.SlateGray);
-            _spriteBatch.Begin();
+            _p.CurrentZone = AnomalyType.Neutral;
+            foreach (var z in _zones)
+                if (z.ContainsPoint(_p.Position)) _p.CurrentZone = z.Type;
+        }
 
-            int sw = _graphics.PreferredBackBufferWidth;
-            int sh = _graphics.PreferredBackBufferHeight;
-            Point mPos = Mouse.GetState().Position;
+        private void UpdateDamageMultiplier()
+        {
+            _p.DamageMultiplier = _npc.IsInjured ? 0.5f : 1.0f;
+        }
 
-            DrawWorld();
-            DrawMenus(sw, sh, mPos);
+        protected override void Draw(GameTime gt)
+        {
+            GraphicsDevice.Clear(Color.DarkSlateGray);
+            Matrix cam = Matrix.CreateTranslation(new Vector3(-_camPos, 0));
 
+            _spriteBatch.Begin(transformMatrix: cam);
+            _view.DrawWorld(_spriteBatch, _p, _enemies, _zones, _npc, _drops, _gates);
             _spriteBatch.End();
-            base.Draw(gameTime);
-        }
 
-        private void DrawWorld()
-        {
-            foreach (var zone in _anomalyZones)
-                _view.DrawAnomalyZone(_spriteBatch, zone);
-
-            _view.DrawDamageZone(_spriteBatch, _damageZone);
-            _view.DrawEnemy(_spriteBatch, _enemyModel);
-            _view.DrawNpc(_spriteBatch, _npcModel);
-            _view.DrawPlayer(_spriteBatch, _playerModel);
-            _view.DrawPlayerAttack(_spriteBatch, _playerModel);
-            _view.DrawPlayerUI(_spriteBatch, _playerModel);
-        }
-
-        private void DrawMenus(int sw, int sh, Point mPos)
-        {
-            if (_gameState == GameState.Paused)
-                _view.DrawPauseMenu(_spriteBatch, _font, sw, sh, mPos);
-            else if (_gameState == GameState.GameOver)
-                _view.DrawGameOver(_spriteBatch, _font, sw, sh, mPos);
+            _spriteBatch.Begin();
+            _view.DrawUI(_spriteBatch, _p, _npc, _font, GraphicsDevice.Viewport.Width);
+            _spriteBatch.End();
         }
     }
 }

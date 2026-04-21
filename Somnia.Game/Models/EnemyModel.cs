@@ -6,68 +6,33 @@ namespace Somnia.Game.Models
     public class EnemyModel
     {
         public Vector2 Position { get; set; }
-        public float MaxHealth { get; set; } = 50f;
-        public float CurrentHealth { get; set; }
+        public float Health { get; set; } = 60f;
+        public float MaxHealth { get; set; } = 60f;
         public float Speed { get; set; } = 150f;
+        public float AttackRadius { get; set; } = 50f;
         public float Damage { get; set; } = 10f;
-        public float AttackRadius { get; set; } = 40f;
-        public bool IsDead => CurrentHealth <= 0;
+        public bool IsDead => Health <= 0;
+        public bool HasDropped { get; set; }
 
-        private Vector2 _knockbackVelocity;
+        private Vector2 _velocity;
         private float _attackCooldown;
-        private const float AttackCooldownTime = 1f;
 
-        public EnemyModel(Vector2 startPosition)
-        {
-            Position = startPosition;
-            CurrentHealth = MaxHealth;
-            _knockbackVelocity = Vector2.Zero;
-            _attackCooldown = 0f;
-        }
-
-        public void TakeDamage(float amount, Vector2 knockbackDirection)
-        {
-            CurrentHealth = Math.Max(0, CurrentHealth - amount);
-            ApplyKnockback(knockbackDirection);
-        }
-
-        private void ApplyKnockback(Vector2 direction)
-        {
-            if (direction != Vector2.Zero)
-            {
-                _knockbackVelocity = Vector2.Normalize(direction) * 400f;
-            }
-        }
-
-        public void Update(float deltaTime)
-        {
-            UpdateKnockback(deltaTime);
-            UpdateAttackCooldown(deltaTime);
-        }
-
-        private void UpdateKnockback(float deltaTime)
-        {
-            if (_knockbackVelocity != Vector2.Zero)
-            {
-                Position += _knockbackVelocity * deltaTime;
-                _knockbackVelocity *= 0.9f;
-                if (_knockbackVelocity.Length() < 10f)
-                {
-                    _knockbackVelocity = Vector2.Zero;
-                }
-            }
-        }
-
-        private void UpdateAttackCooldown(float deltaTime)
-        {
-            if (_attackCooldown > 0)
-            {
-                _attackCooldown -= deltaTime;
-            }
-        }
+        public EnemyModel(Vector2 start) => Position = start;
 
         public bool CanAttack() => _attackCooldown <= 0;
+        public void PerformAttack() => _attackCooldown = 1.0f;
 
-        public void PerformAttack() => _attackCooldown = AttackCooldownTime;
+        public void TakeDamage(float dmg, Vector2 source, float kbPower)
+        {
+            Health -= dmg;
+            if (kbPower > 0) _velocity = Vector2.Normalize(Position - source) * kbPower;
+        }
+
+        public void Update(float dt)
+        {
+            Position += _velocity * dt;
+            _velocity = Vector2.Lerp(_velocity, Vector2.Zero, 0.1f);
+            if (_attackCooldown > 0) _attackCooldown -= dt;
+        }
     }
 }
