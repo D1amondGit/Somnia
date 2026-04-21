@@ -1,12 +1,15 @@
 {
   "version": 2,
-  "dgSpecHash": "QsqJtu0HePU=",
+  "dgSpecHash": "S01xgX3egtg=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Пользователь\\RiderProjects\\SomniaGame\\Somnia.Tests\\Somnia.Tests.csproj",
+  "projectFilePath": "C:\\Users\\Пользователь\\RiderProjects\\Somnia.git\\Somnia.Tests\\Somnia.Tests.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\Пользователь\\.nuget\\packages\\anthropic.sdk\\5.10.0\\anthropic.sdk.5.10.0.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\coverlet.collector\\6.0.4\\coverlet.collector.6.0.4.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.applicationinsights\\2.23.0\\microsoft.applicationinsights.2.23.0.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\10.0.3\\microsoft.bcl.asyncinterfaces.10.0.3.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.codecoverage\\18.3.0\\microsoft.codecoverage.18.3.0.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.extensions.ai.abstractions\\10.3.0\\microsoft.extensions.ai.abstractions.10.3.0.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.extensions.dependencymodel\\8.0.2\\microsoft.extensions.dependencymodel.8.0.2.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.net.test.sdk\\18.3.0\\microsoft.net.test.sdk.18.3.0.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.testing.extensions.telemetry\\2.1.0\\microsoft.testing.extensions.telemetry.2.1.0.nupkg.sha512",
