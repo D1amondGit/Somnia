@@ -75,17 +75,39 @@ namespace Somnia.Game.Models
             }
         }
 
+        public enum AnomalyType { Red, Blue, Green, Neutral } // Добавили Green отдельно
+
+// ... внутри PlayerModel ...
         public void UseActiveSkill(Vector2 target, List<EnemyModel> enemies, NpcModel npc)
         {
             if (State == PlayerState.Carrying || (ActiveSlot == 0 && Cd1 > 0) || (ActiveSlot == 1 && Cd2 > 0) || (ActiveSlot == 2 && Cd3 > 0)) return;
 
             float dmgMult = (npc != null && !npc.IsDead && npc.Health < 50f) ? 0.5f : 1f;
-
             Vector2 normDir = target != Vector2.Zero ? Vector2.Normalize(target) : Vector2.UnitX;
-            bool success = CurrentZone == AnomalyType.Red ? UseRed(normDir, enemies, npc, dmgMult) : 
-                           CurrentZone == AnomalyType.Blue ? UseBlue(normDir, enemies, dmgMult) : UseGreen(normDir, enemies, dmgMult);
-            
-            if (success) { _attackTimer = 0.15f; if (ActiveSlot == 0) Cd1 = MaxCd1; else if (ActiveSlot == 1) Cd2 = MaxCd2; else Cd3 = MaxCd3; }
+
+            // Теперь каждая зона вызывает свои методы
+            bool success = CurrentZone switch {
+                AnomalyType.Red => UseRed(normDir, enemies, npc, dmgMult),
+                AnomalyType.Blue => UseBlue(normDir, enemies, dmgMult),
+                AnomalyType.Green => UseGreen(normDir, enemies, dmgMult),
+                AnomalyType.Neutral => UseNeutral(normDir, enemies, dmgMult), // Базовые атаки
+                _ => false
+            };
+    
+            if (success) { 
+                _attackTimer = 0.15f; 
+                if (ActiveSlot == 0) Cd1 = MaxCd1; else if (ActiveSlot == 1) Cd2 = MaxCd2; else Cd3 = MaxCd3; 
+            }
+        }
+
+// Новый метод для нейтральной зоны (обычные выстрелы/удары)
+        private bool UseNeutral(Vector2 dir, List<EnemyModel> enemies, float mult) {
+            if (ActiveSlot == 0 && ConsumeMana(5f)) {
+                object t = GetClosestEntity(dir, enemies, null, 800f, 0.95f);
+                if (t is EnemyModel em) em.TakeDamage(25f * mult, Position, 100f);
+                MaxCd1 = 0.3f; return true;
+            }
+            return false;
         }
 
         private bool UseRed(Vector2 dir, List<EnemyModel> enemies, NpcModel npc, float mult) {

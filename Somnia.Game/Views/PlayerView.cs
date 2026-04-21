@@ -88,7 +88,13 @@ namespace Somnia.Game.Views
 
         private void DrawNpc(SpriteBatch sb, NpcModel n) => sb.Draw(_tex, new Rectangle((int)n.Position.X, (int)n.Position.Y, 40, 40), Color.Yellow);
         private void DrawEnemy(SpriteBatch sb, EnemyModel e) => sb.Draw(_tex, new Rectangle((int)e.Position.X, (int)e.Position.Y, 40, 40), Color.Purple);
-        private Color GetZoneColor(AnomalyType t) => t == AnomalyType.Red ? Color.Red : (t == AnomalyType.Blue ? Color.Blue : Color.Green);
+        private Color GetZoneColor(AnomalyType t) => t switch {
+            AnomalyType.Red => Color.Red,
+            AnomalyType.Blue => Color.Blue,
+            AnomalyType.Green => Color.LimeGreen,
+            AnomalyType.Neutral => Color.Gray * 0.5f,
+            _ => Color.White
+        };
         
         public void DrawUI(SpriteBatch sb, PlayerModel p, SpriteFont f, int w, int h, int lvl) {
             sb.Draw(_tex, new Rectangle(20, 20, (int)(200 * (p.CurrentHealth/p.MaxHealth)), 20), Color.Red);
