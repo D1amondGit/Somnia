@@ -1,38 +1,33 @@
-using System;
-using System.Numerics;
+using Microsoft.Xna.Framework;
 
 namespace Somnia.Game.Models
 {
+    public enum EnemyType { Melee, Shooter }
     public class EnemyModel
     {
-        public Vector2 Position { get; set; }
-        public float Health { get; set; } = 60f;
-        public float MaxHealth { get; set; } = 60f;
-        public float Speed { get; set; } = 150f;
-        public float AttackRadius { get; set; } = 50f;
-        public float Damage { get; set; } = 10f;
+        public Vector2 Position;
+        public Vector2 Velocity;
+        public float Health = 100f;
+        public float MaxHealth = 100f;
+        public EnemyType Type;
+        public float StunTimer, SlowTimer, AttackCooldown, InfectionTimer;
+        public bool IsInfected, IsDummy, HasDropped;
         public bool IsDead => Health <= 0;
-        public bool HasDropped { get; set; }
 
-        private Vector2 _velocity;
-        private float _attackCooldown;
-
-        public EnemyModel(Vector2 start) => Position = start;
-
-        public bool CanAttack() => _attackCooldown <= 0;
-        public void PerformAttack() => _attackCooldown = 1.0f;
-
-        public void TakeDamage(float dmg, Vector2 source, float kbPower)
+        public EnemyModel(Vector2 pos, EnemyType type = EnemyType.Melee)
         {
-            Health -= dmg;
-            if (kbPower > 0) _velocity = Vector2.Normalize(Position - source) * kbPower;
+            Position = pos; Type = type;
         }
-
+        
+        public void TakeDamage(float dmg, Vector2 source, float knockback) => Health -= dmg;
+        
         public void Update(float dt)
         {
-            Position += _velocity * dt;
-            _velocity = Vector2.Lerp(_velocity, Vector2.Zero, 0.1f);
-            if (_attackCooldown > 0) _attackCooldown -= dt;
+            Position += Velocity * dt;
+            Velocity = Vector2.Lerp(Velocity, Vector2.Zero, 0.1f);
+            if (AttackCooldown > 0) AttackCooldown -= dt;
+            if (StunTimer > 0) StunTimer -= dt;
+            if (SlowTimer > 0) SlowTimer -= dt;
         }
     }
 }

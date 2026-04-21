@@ -4,16 +4,18 @@ namespace Somnia.Game.Models
 {
     public class AnomalyZone
     {
-        public Rectangle Bounds { get; }
-        public AnomalyType Type { get; }
+        public Rectangle Area;
+        public AnomalyType Type;
 
-        public AnomalyZone(Rectangle bounds, AnomalyType type)
+        public AnomalyZone(Rectangle r, AnomalyType t)
         {
-            Bounds = bounds;
-            Type = type;
+            Area = r;
+            Type = t;
         }
 
-        public bool ContainsPoint(System.Numerics.Vector2 point)
-            => Bounds.Contains((int)point.X, (int)point.Y);
+        public bool ContainsPoint(Vector2 point)
+        {
+            return Area.Contains((int)point.X, (int)point.Y);
+        }
     }
 }

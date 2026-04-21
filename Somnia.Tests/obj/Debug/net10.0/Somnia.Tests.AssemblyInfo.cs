@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Somnia.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+13dc525dad28faab5822150070a3f567edc8095c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0e0b5ba4ebfe1e686033a254f97b42e237863f69")]
 [assembly: System.Reflection.AssemblyProductAttribute("Somnia.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Somnia.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

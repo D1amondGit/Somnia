@@ -1,4 +1,4 @@
-using System.Numerics;
+using Microsoft.Xna.Framework;
 
 namespace Somnia.Game.Models
 {
@@ -6,13 +6,10 @@ namespace Somnia.Game.Models
 
     public class ResourceDropModel
     {
-        public Vector2 Position { get; set; }
+        public Vector2 Position { get; private set; }
         public DropType Type { get; }
         public float Value { get; }
         public bool Collected { get; private set; }
-
-        private const float AttractionRadius = 120f;
-        private const float CollectRadius = 20f;
 
         public ResourceDropModel(Vector2 pos, DropType type, float value)
         {
@@ -23,11 +20,15 @@ namespace Somnia.Game.Models
 
         public void Update(Vector2 playerPos)
         {
+            if (Collected) return;
             float dist = Vector2.Distance(Position, playerPos);
-            if (dist < AttractionRadius)
-                Position = Vector2.Lerp(Position, playerPos, 0.12f);
-            if (dist < CollectRadius)
-                Collected = true;
+            
+            if (dist < 20f) { Collected = true; return; }
+            if (dist < 120f) 
+            {
+                Vector2 dir = Vector2.Normalize(playerPos - Position);
+                Position += dir * 150f * 0.016f; // Приближение к игроку
+            }
         }
     }
 }
