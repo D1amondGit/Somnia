@@ -13,7 +13,7 @@ namespace Somnia.Game.Controllers
 
         public PlayerController(PlayerModel model) => _model = model;
 
-        public void Update(float dt, Rectangle playArea, List<EnemyModel> enemies, Matrix cam, NpcModel npc, List<Vector3> walls)
+        public void Update(float dt, Rectangle playArea, List<EnemyModel> enemies, Matrix cam, NpcModel npc, List<HexagonModel> walls)
         {
             var ms = Mouse.GetState();
             var ks = Keyboard.GetState();
@@ -30,12 +30,10 @@ namespace Somnia.Game.Controllers
                 _model.UseActiveSkill(toMouse, enemies, npc);
 
             HandleInteraction(ks, npc);
-            
             _model.Move(GetDir(ks), dt, playArea, walls);
             
             float mult = (npc != null && !npc.IsDead && npc.Health < 50f) ? 0.5f : 1f;
             _model.UpdateSkills(dt, enemies, mult); 
-            
             _prevM = ms; _prevK = ks;
         }
 

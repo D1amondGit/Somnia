@@ -20,11 +20,13 @@ namespace Somnia.Game
         
         private List<EnemyModel> _enemies;
         private List<AnomalyZone> _zones;
-        private List<Vector3> _walls; 
+        private List<HexagonModel> _walls; 
         private List<ProjectileModel> _projectiles; 
         
         private SpriteFont _font;
         private Texture2D _floorTex;
+        private Texture2D _wallTex; // Текстура стены
+        
         private KeyboardState _prevK;
         private GameState _state; 
         private Rectangle _hatch; 
@@ -43,41 +45,26 @@ namespace Somnia.Game
         
         private void Restart() 
         {
-            // Отступы по 50 пикселей со всех сторон (для жирной черной рамки)
             _playArea = new Rectangle(50, 50, 1180, 620);
             
-            // Спавны из скетча (левый верхний угол)
-            _p = new PlayerModel(new Vector2(100, 100)); // Зеленая точка
-            _npc = new NpcModel(new Vector2(200, 150));  // Желтая точка
+            _p = new PlayerModel(new Vector2(100, 100)); 
+            _npc = new NpcModel(new Vector2(200, 150));  
             
             _pCtrl = new PlayerController(_p);
             _eCtrl = new EnemyController();
             _projectiles = new List<ProjectileModel>();
             _enemies = new List<EnemyModel>();
-            _walls = new List<Vector3>();
             
-            // СТЕНЫ ИЗ СКЕТЧА (X, Y, Радиус)
-            _walls.Add(new Vector3(300, 500, 70));  // Нижний левый круг (В Зеленой зоне)
-            _walls.Add(new Vector3(640, 200, 80));  // Верхний центральный круг (Между Зеленой и Красной)
-            _walls.Add(new Vector3(1000, 360, 70)); // Правый центральный круг (Между Красной и Синей)
+            // --- ОДИН ГЕКСАГОН В ЦЕНТРЕ (X, Y, Радиус, Высота Стенки) ---
+            _walls = new List<HexagonModel>();
+            _walls.Add(new HexagonModel(new Vector2(640, 360), 100f, 60f)); 
             
-            // ЛЮК ИЗ СКЕТЧА (Синяя точка в правом нижнем углу)
             _hatch = new Rectangle(1110, 560, 80, 80);
 
-            // ВРАГИ ИЗ СКЕТЧА (Красные точки)
-            _enemies.Add(new EnemyModel(new Vector2(500, 360), EnemyType.Melee)); // Центр
-            _enemies.Add(new EnemyModel(new Vector2(900, 150), EnemyType.Melee)); // Верхний правый
-            _enemies.Add(new EnemyModel(new Vector2(800, 550), EnemyType.Melee)); // Нижний правый
-            
-            // Дальник в обводке
-            _enemies.Add(new EnemyModel(new Vector2(1100, 100), EnemyType.Shooter)); 
-            
-            // ЗОНЫ ИЗ СКЕТЧА (Зеленая половина, Красная и Синяя четвертинки)
             _zones = new List<AnomalyZone> {
                 new AnomalyZone(new Rectangle(50, 50, 590, 620), AnomalyType.Neutral), 
                 new AnomalyZone(new Rectangle(640, 50, 590, 310), AnomalyType.Red),   
                 new AnomalyZone(new Rectangle(640, 360, 590, 310), AnomalyType.Blue)   
-                
             };
             
             _state = GameState.Playing; 
@@ -89,6 +76,7 @@ namespace Somnia.Game
             _view = new PlayerView(GraphicsDevice);
             try { _font = Content.Load<SpriteFont>("MainFont"); } catch { }
             try { _floorTex = Content.Load<Texture2D>("floor"); } catch { }
+            try { _wallTex = Content.Load<Texture2D>("wall"); } catch { } // Загрузка стены
         }
 
         protected override void Update(GameTime gt) 
@@ -108,29 +96,10 @@ namespace Somnia.Game
             float dt = (float)gt.ElapsedGameTime.TotalSeconds;
             
             _pCtrl.Update(dt, _playArea, _enemies, Matrix.Identity, _npc, _walls);
-            _eCtrl.Update(dt, _enemies, _p, _npc, _playArea, _walls, _projectiles);
             
-            for (int i = _enemies.Count - 1; i >= 0; i--) {
-                _enemies[i].Update(dt);
-                
-                Vector2 center = _enemies[i].Position + new Vector2(20, 20);
-                foreach (var w in _walls) {
-                    Vector2 wCenter = new Vector2(w.X, w.Y);
-                    float dist = Vector2.Distance(center, wCenter);
-                    float minDist = 20f + w.Z;
-                    if (dist < minDist && dist > 0) {
-                        _enemies[i].Position += Vector2.Normalize(center - wCenter) * (minDist - dist);
-                        center = _enemies[i].Position + new Vector2(20, 20);
-                    }
-                }
-
-                _enemies[i].Position = new Vector2(
-                    MathHelper.Clamp(_enemies[i].Position.X, _playArea.X, _playArea.Right - 40),
-                    MathHelper.Clamp(_enemies[i].Position.Y, _playArea.Y, _playArea.Bottom - 40)
-                );
-
-                if (_enemies[i].IsDead) _enemies.RemoveAt(i);
-            }
+            // Заглушка для ИИ, чтобы он не крашился при пустых стенах. 
+            // (В EnemyController тоже нужно будет поменять List<Vector3> на List<HexagonModel> позже, пока передаем null)
+            _eCtrl.Update(dt, _enemies, _p, _npc, _playArea, null, _projectiles); 
 
             Rectangle pRect = new Rectangle((int)_p.Position.X, (int)_p.Position.Y, 50, 50);
             for (int i = _projectiles.Count - 1; i >= 0; i--) {
@@ -138,7 +107,7 @@ namespace Somnia.Game
                 Vector2 projCenter = _projectiles[i].Position;
                 
                 bool hitWall = false; 
-                foreach(var w in _walls) if (Vector2.Distance(projCenter, new Vector2(w.X, w.Y)) < w.Z + 5f) hitWall = true;
+                foreach(var w in _walls) if (Vector2.Distance(projCenter, w.Center) < w.Radius * 0.866f) hitWall = true;
                 
                 if (hitWall || !_playArea.Contains(projCenter)) { _projectiles.RemoveAt(i); continue; }
                 if (pRect.Contains(projCenter)) { _p.TakeDamage(_projectiles[i].Damage); _projectiles.RemoveAt(i); }
@@ -151,12 +120,14 @@ namespace Somnia.Game
         protected override void Draw(GameTime gt) 
         {
             GraphicsDevice.Clear(Color.DarkSlateGray); 
+            // PointWrap ОБЯЗАТЕЛЕН, чтобы текстуры пола и стен зацикливались
             _sb.Begin(samplerState: SamplerState.PointWrap);
             
             if (_floorTex != null)
                 _sb.Draw(_floorTex, new Rectangle(0, 0, 1280, 720), new Rectangle(0, 0, 1280, 720), Color.DarkGray);
 
-            _view.DrawWorld(_sb, _p, _enemies, _zones, _npc, _hatch, _playArea, _walls, _projectiles);
+            // Передаем _wallTex в DrawWorld
+            _view.DrawWorld(_sb, _p, _enemies, _zones, _npc, _hatch, _playArea, _walls, _wallTex, _projectiles);
             _view.DrawUI(_sb, _p, _font, 1280, 720, 1); 
             if (_state == GameState.Paused) _view.DrawPauseMenu(_sb, _font, 1280, 720); 
             _sb.End();

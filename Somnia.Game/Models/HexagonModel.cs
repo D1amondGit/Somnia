@@ -9,7 +9,7 @@ namespace Somnia.Game.Models
         public float Radius { get; set; }
         public float WallHeight { get; set; }
 
-        public HexagonModel(Vector2 center, float radius, float height = 30f)
+        public HexagonModel(Vector2 center, float radius, float height = 50f)
         {
             Center = center;
             Radius = radius;
@@ -22,9 +22,7 @@ namespace Somnia.Game.Models
             for (int i = 0; i < 6; i++)
             {
                 float angle = MathHelper.ToRadians(i * 60 - 30);
-                v[i] = Center + new Vector2(
-                    (float)Math.Cos(angle) * Radius,
-                    (float)Math.Sin(angle) * Radius);
+                v[i] = Center + new Vector2((float)Math.Cos(angle) * Radius, (float)Math.Sin(angle) * Radius);
             }
             return v;
         }

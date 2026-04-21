@@ -42,7 +42,7 @@ namespace Somnia.Game.Models
         public void UpdateFacing(Vector2 d) { if (d != Vector2.Zero) { d.Normalize(); FacingDir = d; } }
 
         // ЗАМЕНИЛИ w, h НА playArea, А walls НА Vector3 (круги)
-        public void Move(Vector2 dir, float dt, Rectangle playArea, List<Vector3> walls)
+        public void Move(Vector2 dir, float dt, Rectangle playArea, List<HexagonModel> walls)
         {
             CurrentMana = Math.Min(100f, CurrentMana + 10f * dt);
             if (Cd1 > 0) Cd1 -= dt; if (Cd2 > 0) Cd2 -= dt; if (Cd3 > 0) Cd3 -= dt;
@@ -53,19 +53,10 @@ namespace Somnia.Game.Models
             Vector2 move = IsDashing ? _dashDir * 2000f : (dir != Vector2.Zero ? Vector2.Normalize(dir) * (State == PlayerState.Carrying ? 250f : 500f) : Vector2.Zero);
             Position += move * dt;
 
-            // Идеальное скольжение вокруг круглых стен
             Vector2 center = Position + new Vector2(25, 25);
-            foreach (var w in walls) {
-                Vector2 wCenter = new Vector2(w.X, w.Y);
-                float dist = Vector2.Distance(center, wCenter);
-                float minDist = 25f + w.Z; // 25 = радиус игрока, Z = радиус стены
-                if (dist < minDist && dist > 0) {
-                    Position += Vector2.Normalize(center - wCenter) * (minDist - dist);
-                    center = Position + new Vector2(25, 25);
-                }
-            }
+            foreach (var w in walls) PhysicsHelper.ResolveHexCollision(ref center, 25f, w);
+            Position = center - new Vector2(25, 25);
 
-            // Жестко запираем игрока в пределах нарисованной карты
             Position = new Vector2(
                 MathHelper.Clamp(Position.X, playArea.X, playArea.Right - 50),
                 MathHelper.Clamp(Position.Y, playArea.Y, playArea.Bottom - 50)
