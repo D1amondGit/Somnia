@@ -8,39 +8,30 @@ namespace Somnia.Game.Models
     {
         public static void ResolveHexCollision(ref Vector2 pos, float radius, HexagonModel hex)
         {
-            // 1. "Отменяем" сплющивание для вычислений, чтобы коллизия была идеально ровной
-            Vector2 localP = pos - (hex.Center - new Vector2(0, hex.WallHeight)); // Коллизия по крыше
-            localP.Y /= hex.SquashFactor; 
+            Vector2 roofC = hex.Center - new Vector2(0, hex.WallHeight);
+            Vector2 lp = pos - roofC;
             
-            float s32 = 0.8660254f; // sin(60)
-            float apothem = hex.Radius * s32; 
+            // ОБРАТНАЯ ТРАНСФОРМАЦИЯ: превращаем наклонный овал обратно в ровный круг
+            float untransformedY = (lp.Y + lp.X * hex.Tilt) / hex.Squash;
+            Vector2 pClean = new Vector2(lp.X, untransformedY);
             
-            // Быстрая проверка: если далеко, не считаем
-            if (localP.LengthSquared() > (hex.Radius + radius) * (hex.Radius + radius)) return;
+            float s32 = 0.8660254f; float apothem = hex.Radius * s32;
+            if (pClean.LengthSquared() > Math.Pow(hex.Radius + radius, 2)) return;
 
-            // --- НОВЫЕ НОРМАЛИ ДЛЯ Pointy-topped ГЕКСАГОНА ---
-            // Углы нормалей: 30, 90, 150, 210, 270, 330 градусов
-            var normals = new List<Vector2>();
-            normals.Add(new Vector2(s32, 0.5f));    // 30 deg
-            normals.Add(new Vector2(0, 1));        // 90 deg
-            normals.Add(new Vector2(-s32, 0.5f));   // 150 deg
-            normals.Add(new Vector2(-s32, -0.5f));  // 210 deg
-            normals.Add(new Vector2(0, -1));       // 270 deg
-            normals.Add(new Vector2(s32, -0.5f));   // 330 deg
+            var ns = new List<Vector2>(); // Нормали Flat-topped
+            ns.Add(new(1, 0)); ns.Add(new(0.5f, s32)); ns.Add(new(-0.5f, s32));
+            ns.Add(new(-1, 0)); ns.Add(new(-0.5f, -s32)); ns.Add(new(0.5f, -s32));
             
-            float maxDist = -9999f;
-            Vector2 bestN = Vector2.Zero;
-            
-            foreach (var n in normals) {
-                float d = Vector2.Dot(localP, n) - apothem;
-                if (d > maxDist) { maxDist = d; bestN = n; }
+            float maxD = -9999f; Vector2 bestN = Vector2.UnitX;
+            foreach (var n in ns) {
+                float d = Vector2.Dot(pClean, n) - apothem;
+                if (d > maxD) { maxD = d; bestN = n; }
             }
             
-            // 2. Выталкиваем и "сплющиваем" вектор отдачи обратно
-            if (maxDist < radius) {
-                Vector2 push = bestN * (radius - maxDist);
-                push.Y *= hex.SquashFactor;
-                pos += push;
+            if (maxD < radius) {
+                Vector2 push = bestN * (radius - maxD);
+                // Сжимаем вектор выталкивания обратно под угол
+                pos += new Vector2(push.X, (push.Y * hex.Squash) - (push.X * hex.Tilt));
             }
         }
     }
