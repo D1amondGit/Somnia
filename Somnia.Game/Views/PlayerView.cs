@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Somnia.Game.Models;
@@ -11,27 +12,24 @@ namespace Somnia.Game.Views
         private Texture2D _tex;
         public PlayerView(GraphicsDevice gd) { _tex = new Texture2D(gd, 1, 1); _tex.SetData(new[] { Color.White }); }
 
-        // Добавлен Texture2D wallTex
         public void DrawWorld(SpriteBatch sb, PlayerModel p, List<EnemyModel> enemies, List<AnomalyZone> zones, NpcModel npc, Rectangle hatch, Rectangle playArea, List<HexagonModel> walls, Texture2D wallTex, List<ProjectileModel> projs)
         {
             foreach (var z in zones) sb.Draw(_tex, z.Area, GetZoneColor(z.Type) * 0.25f);
-            
             sb.Draw(_tex, new Rectangle(0, 0, 1280, playArea.Y), Color.Black); 
             sb.Draw(_tex, new Rectangle(0, playArea.Bottom, 1280, 720 - playArea.Bottom), Color.Black); 
             sb.Draw(_tex, new Rectangle(0, playArea.Y, playArea.X, playArea.Height), Color.Black); 
             sb.Draw(_tex, new Rectangle(playArea.Right, playArea.Y, 1280 - playArea.Right, playArea.Height), Color.Black); 
             
-            // 1. РИСУЕМ СТЕНЫ (с текстурой)
+            // 1. СТЕНЫ (Текстура)
             foreach(var w in walls) DrawHexWalls(sb, w, wallTex);
+            
+            // 2. КРЫШИ (Черные, поверх стен)
+            foreach(var w in walls) FillHexagon(sb, w.Center - new Vector2(0, w.WallHeight), w.Radius, w.SquashFactor, Color.Black);
 
-            // 2. РИСУЕМ КРЫШИ (черные, поверх стен)
-            foreach(var w in walls) FillHexagon(sb, w.Center, w.Radius, Color.Black);
-
-            Color hatchCol = p.State == PlayerState.Carrying ? Color.Cyan : Color.DarkBlue;
-            FillHexagon(sb, new Vector2(hatch.X + hatch.Width/2, hatch.Y + hatch.Height/2), 40f, hatchCol); 
+            Color hCol = p.State == PlayerState.Carrying ? Color.Cyan : Color.DarkBlue;
+            FillHexagon(sb, new Vector2(hatch.X + hatch.Width/2, hatch.Y + hatch.Height/2), 40f, 0.5f, hCol); 
 
             foreach (var pr in projs) DrawCircle(sb, pr.Position, 8f, Color.Red, 8);
-
             if (npc != null && !npc.IsPickedUp) DrawNpc(sb, npc);
             foreach (var e in enemies) if (!e.IsDead) DrawEnemy(sb, e);
             
@@ -42,35 +40,58 @@ namespace Somnia.Game.Views
             if (p.IsAttacking) DrawAttackEffect(sb, p);
         }
 
-        // АЛГОРИТМ НАТЯГИВАНИЯ ТЕКСТУРЫ НА ГРАНИ
-        private void DrawHexWalls(SpriteBatch sb, HexagonModel hex, Texture2D tex)
-        {
+        private void DrawHexWalls(SpriteBatch sb, HexagonModel hex, Texture2D tex) {
             if (tex == null) return;
-            var v = hex.GetVertices();
-            for (int i = 0; i < 6; i++)
-            {
-                Vector2 p1 = v[i];
-                Vector2 p2 = v[(i + 1) % 6];
-                float angle = (float)Math.Atan2(p2.Y - p1.Y, p2.X - p1.X);
-                float length = Vector2.Distance(p1, p2);
+            Vector2[] r = hex.GetTopVertices(); 
+            
+            // Для Pointy-topped гексагона видимыми передними гранями являются (в изометрии):
+            // Грань 2-1 (передняя-левая), Грань 1-0 (нижняя), Грань 0-5 (передняя-правая)
+            DrawWall(sb, tex, r, r, hex.WallHeight);
+            DrawWall(sb, tex, r, r, hex.WallHeight);
+            DrawWall(sb, tex, r, r, hex.WallHeight);
+        }
+
+        private void DrawWall(SpriteBatch sb, Texture2D tex, Vector2 p1, Vector2 p2, float h) {
+            if (p1.X > p2.X) { var t = p1; p1 = p2; p2 = t; } 
+            float w = p2.X - p1.X;
+            if (w <= 0) return;
+
+            for (float x = 0; x <= w; x += 1f) {
+                float topY = MathHelper.Lerp(p1.Y, p2.Y, x / w);
+                // Ширина 2 пикселя спасает от микро-щелей
+                Rectangle d = new Rectangle((int)Math.Round(p1.X + x), (int)Math.Round(topY), 2, (int)Math.Round(h));
                 
-                // SourceRectangle зацикливает текстуру по длине стены, чтобы она не растягивалась
-                Rectangle src = new Rectangle(0, 0, (int)length, (int)hex.WallHeight);
-                Rectangle dest = new Rectangle((int)p1.X, (int)p1.Y, (int)length, (int)hex.WallHeight);
+                int srcX = (int)(p1.X + x) % tex.Width;
+                if (srcX < 0) srcX += tex.Width;
+                Rectangle s = new Rectangle(srcX, 0, 1, tex.Height);
                 
-                sb.Draw(tex, dest, src, Color.Gray, angle, Vector2.Zero, SpriteEffects.None, 0);
+                sb.Draw(tex, d, s, Color.Gray);
             }
         }
 
-        private void FillHexagon(SpriteBatch sb, Vector2 center, float radius, Color color) {
-            float halfH = 0.8660254f * radius;
-            for (float y = -halfH; y <= halfH; y += 1f) {
-                float w = (radius - Math.Abs(y) / 1.73205f) * 2f; 
-                sb.Draw(_tex, new Rectangle((int)(center.X - w/2f), (int)(center.Y + y), (int)w, 1), color);
+        // --- ИСПРАВЛЕННАЯ МАТЕМАТИКА ЗАЛИВКИ Pointy-topped ГЕКСАГОНА ---
+        private void FillHexagon(SpriteBatch sb, Vector2 c, float r, float sq, Color col) {
+            // Pointy-topped гексагон: высота по Y = R, ширина по X = R * 0.866 * 2
+            float s32 = 0.8660254f; // sin(60)
+            float maxH = r * sq; // Высота от центра до точки (сплющенная)
+            
+            for (float y = -maxH; y <= maxH; y += 1f) {
+                // Восстанавливаем "несплющенный" Y для расчета ширины
+                float unsquashedY = y / sq;
+                
+                // Формула ширины правильного Pointy-topped гексагона:
+                // w = (R - |y| / sin(60)) * 2
+                float w = (r - Math.Abs(unsquashedY) / s32) * 2f; 
+                
+                // Убираем отрицательную ширину на самых краях
+                if (w < 0) w = 0; 
+                
+                // Рисуем горизонтальную линию
+                sb.Draw(_tex, new Rectangle((int)Math.Round(c.X - w/2f), (int)Math.Round(c.Y + y), (int)Math.Round(w), 2), col);
             }
         }
 
-        // --- Остальные методы (UI, Пауза, Линии) оставляем без изменений ---
+        // --- ОСТАЛЬНЫЕ МЕТОДЫ (DrawAttackEffect, DrawNpc и UI) БЕЗ ИЗМЕНЕНИЙ ---
         private void DrawAttackEffect(SpriteBatch sb, PlayerModel p) {
             Color c = GetZoneColor(p.CurrentZone); Vector2 cPos = p.Position + new Vector2(25, 25); 
             if (p.CurrentZone == AnomalyType.Neutral) {
