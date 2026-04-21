@@ -30,7 +30,7 @@ namespace Somnia.Game.Models
         
         public bool IsDashing { get; private set; }
         public bool IsAttacking => _attackTimer > 0;
-        public float GreenAuraTimer { get; private set; } 
+        public float GreenAuraTimer { get; private set; }
 
         private float _dashTimer, _dashCd, _attackTimer;
         private Vector2 _dashDir;
@@ -41,7 +41,8 @@ namespace Somnia.Game.Models
         public void TakeDamage(float a) => CurrentHealth = Math.Max(0, CurrentHealth - a);
         public void UpdateFacing(Vector2 d) { if (d != Vector2.Zero) { d.Normalize(); FacingDir = d; } }
 
-        public void Move(Vector2 dir, float dt, int w, int h)
+        // ЗАМЕНИЛИ w, h НА playArea, А walls НА Vector3 (круги)
+        public void Move(Vector2 dir, float dt, Rectangle playArea, List<Vector3> walls)
         {
             CurrentMana = Math.Min(100f, CurrentMana + 10f * dt);
             if (Cd1 > 0) Cd1 -= dt; if (Cd2 > 0) Cd2 -= dt; if (Cd3 > 0) Cd3 -= dt;
@@ -50,25 +51,34 @@ namespace Somnia.Game.Models
             if (_attackTimer > 0) _attackTimer -= dt;
 
             Vector2 move = IsDashing ? _dashDir * 2000f : (dir != Vector2.Zero ? Vector2.Normalize(dir) * (State == PlayerState.Carrying ? 250f : 500f) : Vector2.Zero);
-            Position = new Vector2(MathHelper.Clamp(Position.X + move.X * dt, 0, w - 50), MathHelper.Clamp(Position.Y + move.Y * dt, 0, h - 50));
+            Position += move * dt;
+
+            // Идеальное скольжение вокруг круглых стен
+            Vector2 center = Position + new Vector2(25, 25);
+            foreach (var w in walls) {
+                Vector2 wCenter = new Vector2(w.X, w.Y);
+                float dist = Vector2.Distance(center, wCenter);
+                float minDist = 25f + w.Z; // 25 = радиус игрока, Z = радиус стены
+                if (dist < minDist && dist > 0) {
+                    Position += Vector2.Normalize(center - wCenter) * (minDist - dist);
+                    center = Position + new Vector2(25, 25);
+                }
+            }
+
+            // Жестко запираем игрока в пределах нарисованной карты
+            Position = new Vector2(
+                MathHelper.Clamp(Position.X, playArea.X, playArea.Right - 50),
+                MathHelper.Clamp(Position.Y, playArea.Y, playArea.Bottom - 50)
+            );
         }
 
-        // Обновление длительных навыков (Аура)
-        public void UpdateSkills(float dt, List<EnemyModel> enemies)
-        {
-            if (GreenAuraTimer > 0)
-            {
+        public void UpdateSkills(float dt, List<EnemyModel> enemies, float dmgMult) {
+            if (GreenAuraTimer > 0) {
                 GreenAuraTimer -= dt;
-                foreach (var e in enemies)
-                {
-                    if (Vector2.Distance(Position, e.Position) < 200f)
-                    {
-                        Vector2 pushDir = e.Position - Position;
-                        if (pushDir != Vector2.Zero)
-                        {
-                            e.Position += Vector2.Normalize(pushDir) * 400f * dt;
-                            e.TakeDamage(15f * dt, Position, 0f);
-                        }
+                foreach (var e in enemies) {
+                    if (Vector2.Distance(Position, e.Position) < 200f) {
+                        // ПОЧИНКА: Используем встроенную физику отдачи с силой 600
+                        e.TakeDamage(15f * dmgMult * dt, Position, 600f);
                     }
                 }
             }
@@ -76,27 +86,22 @@ namespace Somnia.Game.Models
 
         public void UseActiveSkill(Vector2 target, List<EnemyModel> enemies, NpcModel npc)
         {
-            if (State == PlayerState.Carrying) return;
-            if (ActiveSlot == 0 && Cd1 > 0) return;
-            if (ActiveSlot == 1 && Cd2 > 0) return;
-            if (ActiveSlot == 2 && Cd3 > 0) return;
+            if (State == PlayerState.Carrying || (ActiveSlot == 0 && Cd1 > 0) || (ActiveSlot == 1 && Cd2 > 0) || (ActiveSlot == 2 && Cd3 > 0)) return;
+
+            float dmgMult = (npc != null && !npc.IsDead && npc.Health < 50f) ? 0.5f : 1f;
 
             Vector2 normDir = target != Vector2.Zero ? Vector2.Normalize(target) : Vector2.UnitX;
-            bool success = CurrentZone == AnomalyType.Red ? UseRed(normDir, enemies, npc) : 
-                           CurrentZone == AnomalyType.Blue ? UseBlue(normDir, enemies) : UseGreen(normDir, enemies);
+            bool success = CurrentZone == AnomalyType.Red ? UseRed(normDir, enemies, npc, dmgMult) : 
+                           CurrentZone == AnomalyType.Blue ? UseBlue(normDir, enemies, dmgMult) : UseGreen(normDir, enemies, dmgMult);
             
-            if (success) {
-                _attackTimer = 0.15f; 
-                if (ActiveSlot == 0) Cd1 = MaxCd1; else if (ActiveSlot == 1) Cd2 = MaxCd2; else Cd3 = MaxCd3;
-            }
+            if (success) { _attackTimer = 0.15f; if (ActiveSlot == 0) Cd1 = MaxCd1; else if (ActiveSlot == 1) Cd2 = MaxCd2; else Cd3 = MaxCd3; }
         }
 
-        private bool UseRed(Vector2 dir, List<EnemyModel> enemies, NpcModel npc)
-        {
+        private bool UseRed(Vector2 dir, List<EnemyModel> enemies, NpcModel npc, float mult) {
             if (ActiveSlot == 0 && ConsumeMana(10f)) { 
                 var hits = new List<EnemyModel>();
                 foreach (var e in enemies) if (Vector2.Distance(Position, e.Position) < 200f && Vector2.Dot(dir, Vector2.Normalize(e.Position - Position)) > 0.5f) hits.Add(e);
-                if (hits.Count > 0) { float dmg = 100f / hits.Count; foreach (var e in hits) e.TakeDamage(dmg, Position, 900f); }
+                if (hits.Count > 0) { float dmg = (100f * mult) / hits.Count; foreach (var e in hits) e.TakeDamage(dmg, Position, 900f); }
                 MaxCd1 = 0.5f; return true; 
             }
             if (ActiveSlot == 1 && ConsumeMana(20f)) { 
@@ -107,38 +112,28 @@ namespace Somnia.Game.Models
             }
             if (ActiveSlot == 2 && ConsumeMana(50f)) { 
                 object target = GetClosestEntity(dir, enemies, null, 2000f, 0.95f);
-                if (target is EnemyModel em) em.TakeDamage(200f, Position, 0f);
+                if (target is EnemyModel em) em.TakeDamage(200f * mult, Position, 0f);
                 MaxCd3 = 5f; return true; 
-            }
-            return false;
+            } return false;
         }
 
-        private bool UseGreen(Vector2 dir, List<EnemyModel> enemies)
-        {
-            if (ActiveSlot == 0 && ConsumeMana(10f)) {
-                object target = GetClosestEntity(dir, enemies, null, 1000f, 0.9f);
-                if (target is EnemyModel em) em.TakeDamage(40f, Position, 200f);
+        private bool UseGreen(Vector2 dir, List<EnemyModel> enemies, float mult) {
+            if (ActiveSlot == 0 && ConsumeMana(10f)) { 
+                object t = GetClosestEntity(dir, enemies, null, 1000f, 0.9f);
+                if (t is EnemyModel em) em.TakeDamage(40f * mult, Position, 200f);
                 MaxCd1 = 0.8f; return true; 
             }
-            if (ActiveSlot == 1 && ConsumeMana(30f)) { 
-                GreenAuraTimer = 4f; 
-                MaxCd2 = 5f; return true; 
-            }
+            if (ActiveSlot == 1 && ConsumeMana(30f)) { GreenAuraTimer = 4f; MaxCd2 = 5f; return true; }
             if (ActiveSlot == 2 && ConsumeMana(40f)) { 
                 object target = GetClosestEntity(dir, enemies, null, 1000f, 0.9f);
-                if (target is EnemyModel em) {
-                    em.IsInfected = true;
-                    em.InfectionTimer = 0.1f;
-                }
+                if (target is EnemyModel em) { em.IsInfected = true; em.InfectionTimer = 0.1f; }
                 MaxCd3 = 4f; return true; 
-            }
-            return false;
+            } return false;
         }
 
-        private bool UseBlue(Vector2 dir, List<EnemyModel> enemies)
-        {
+        private bool UseBlue(Vector2 dir, List<EnemyModel> enemies, float mult) {
             if (ActiveSlot == 0 && ConsumeMana(5f)) {
-                foreach (var e in enemies) if (Vector2.Distance(Position, e.Position) < 100f && Vector2.Dot(dir, Vector2.Normalize(e.Position - Position)) > 0.5f) e.TakeDamage(15f, Position, 100f);
+                foreach (var e in enemies) if (Vector2.Distance(Position, e.Position) < 100f && Vector2.Dot(dir, Vector2.Normalize(e.Position - Position)) > 0.5f) e.TakeDamage(15f * mult, Position, 100f);
                 MaxCd1 = 0.2f; return true; 
             }
             if (ActiveSlot == 1 && ConsumeMana(25f)) { 
@@ -152,26 +147,24 @@ namespace Somnia.Game.Models
 
         private bool ConsumeMana(float a) { if (CurrentMana >= a) { CurrentMana -= a; return true; } return false; }
 
-        private object GetClosestEntity(Vector2 aimDir, List<EnemyModel> enemies, NpcModel npc, float maxRange, float minDot) {
-            object best = null; 
-            float bestDot = minDot;
-            
+        private EnemyModel GetClosestEnemy(Vector2 dir, List<EnemyModel> enemies, float range, float angle) {
+            EnemyModel best = null; float bestDot = angle;
             foreach (var e in enemies) {
                 Vector2 toE = e.Position - Position;
-                if (toE.Length() > 0 && toE.Length() < maxRange) {
-                    float dot = Vector2.Dot(aimDir, Vector2.Normalize(toE));
+                if (toE.Length() > 0 && toE.Length() < range) {
+                    float dot = Vector2.Dot(dir, Vector2.Normalize(toE));
                     if (dot > bestDot) { bestDot = dot; best = e; }
                 }
-            } 
-            
+            } return best;
+        }
+
+        private object GetClosestEntity(Vector2 dir, List<EnemyModel> enemies, NpcModel npc, float maxRange, float minDot) {
+            object best = GetClosestEnemy(dir, enemies, maxRange, minDot);
+            float bestD = best != null ? Vector2.Distance(Position, ((EnemyModel)best).Position) : maxRange;
             if (npc != null && !npc.IsPickedUp) {
                 Vector2 toN = npc.Position - Position;
-                if (toN.Length() > 0 && toN.Length() < maxRange) {
-                    float dot = Vector2.Dot(aimDir, Vector2.Normalize(toN));
-                    if (dot > bestDot) { bestDot = dot; best = npc; }
-                }
-            }
-            return best;
+                if (toN.Length() > 0 && toN.Length() < bestD && Vector2.Dot(dir, Vector2.Normalize(toN)) > minDot) best = npc;
+            } return best;
         }
     }
 }
