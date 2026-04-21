@@ -5,8 +5,12 @@
   <Config />
   <SourceFiles>
     <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/MainFont.spritefont</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/floor.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/wall.png</File>
   </SourceFiles>
   <DestFiles>
+    <File xsi:nil="true" />
+    <File xsi:nil="true" />
     <File xsi:nil="true" />
   </DestFiles>
 </SourceFileCollection>

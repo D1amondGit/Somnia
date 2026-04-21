@@ -102,3 +102,5 @@ C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Game\bin\Debug
 C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Game\obj\Debug\net9.0\Somnia.G.4F1466CE.Up2Date
 C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Game\obj\Debug\net9.0\Somnia.Game.genruntimeconfig.cache
 C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Game\obj\Debug\net9.0\ref\Somnia.Game.dll
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Game\bin\Debug\net9.0\Content\floor.xnb
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Game\bin\Debug\net9.0\Content\wall.xnb

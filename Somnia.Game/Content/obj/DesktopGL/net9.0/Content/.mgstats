@@ -1,1 +1,3 @@
 Source File,Dest File,Processor Type,Content Type,Source File Size,Dest File Size,Build Seconds
+"C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/floor.png","C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/bin/DesktopGL/Content/floor.xnb","TextureProcessor","Texture2DContent",710,1109,0,4331581
+"C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/wall.png","C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/bin/DesktopGL/Content/wall.xnb","TextureProcessor","Texture2DContent",805,1109,0,0049739
