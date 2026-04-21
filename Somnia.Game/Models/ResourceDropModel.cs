@@ -4,6 +4,14 @@ namespace Somnia.Game.Models
 {
     public enum DropType { Health, Mana }
 
+    public class FloatingText
+    {
+        public Vector2 Position;
+        public string Text;
+        public Color Color;
+        public float Timer = 1f;
+    }
+
     public class ResourceDropModel
     {
         public Vector2 Position { get; private set; }
@@ -13,9 +21,7 @@ namespace Somnia.Game.Models
 
         public ResourceDropModel(Vector2 pos, DropType type, float value)
         {
-            Position = pos;
-            Type = type;
-            Value = value;
+            Position = pos; Type = type; Value = value;
         }
 
         public void Update(Vector2 playerPos)
@@ -23,11 +29,10 @@ namespace Somnia.Game.Models
             if (Collected) return;
             float dist = Vector2.Distance(Position, playerPos);
             
-            if (dist < 20f) { Collected = true; return; }
-            if (dist < 120f) 
-            {
+            if (dist < 25f) { Collected = true; return; }
+            if (dist < 150f) {
                 Vector2 dir = Vector2.Normalize(playerPos - Position);
-                Position += dir * 150f * 0.016f; // Приближение к игроку
+                Position += dir * 250f * 0.016f; // Ресурсы сами летят к игроку
             }
         }
     }

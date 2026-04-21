@@ -4,17 +4,16 @@ namespace Somnia.Game.Models
 {
     public class ProjectileModel
     {
-        public Vector2 Position { get; set; }
-        public Vector2 Velocity { get; set; }
-        public float Damage { get; set; }
+        public Vector2 Position;
+        public Vector2 Velocity;
+        public float Radius;
+        public float LifeTime = 3f;
 
-        public ProjectileModel(Vector2 pos, Vector2 vel, float dmg)
+        public ProjectileModel(Vector2 p, Vector2 v, float r)
         {
-            Position = pos;
-            Velocity = vel;
-            Damage = dmg;
+            Position = p; 
+            Velocity = v; 
+            Radius = r;
         }
-
-        public void Update(float dt) => Position += Velocity * dt;
     }
 }
