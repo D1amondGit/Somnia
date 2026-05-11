@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Somnia.Game")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b828d573efa47e1d02ed0d344de9a3147fc1c14b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ab77061f49ae7f6eba92f7143adb3fbc06edee0e")]
 [assembly: System.Reflection.AssemblyProductAttribute("Somnia.Game")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Somnia.Game")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

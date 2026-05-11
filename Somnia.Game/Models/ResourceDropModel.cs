@@ -1,39 +1,36 @@
 using Microsoft.Xna.Framework;
 
-namespace Somnia.Game.Models
-{
-    public enum DropType { Health, Mana }
+namespace Somnia.Game.Models;
 
-    public class FloatingText
+public class ResourceDropModel
+{
+    public Vector2 Position { get; private set; }
+    public DropType Type { get; }
+    public float Value { get; }
+    public bool Collected { get; private set; }
+
+    public ResourceDropModel(Vector2 pos, DropType type, float value)
     {
-        public Vector2 Position;
-        public string Text;
-        public Color Color;
-        public float Timer = 1f;
+        Position = pos;
+        Type = type;
+        Value = value;
     }
 
-    public class ResourceDropModel
+    public void Update(Vector2 playerPos, float dt)
     {
-        public Vector2 Position { get; private set; }
-        public DropType Type { get; }
-        public float Value { get; }
-        public bool Collected { get; private set; }
+        if (Collected || dt <= 0) return;
 
-        public ResourceDropModel(Vector2 pos, DropType type, float value)
+        float dist = Vector2.Distance(Position, playerPos);
+        if (dist < 25f)
         {
-            Position = pos; Type = type; Value = value;
+            Collected = true;
+            return;
         }
 
-        public void Update(Vector2 playerPos)
+        if (dist < 150f && dist > 0.001f)
         {
-            if (Collected) return;
-            float dist = Vector2.Distance(Position, playerPos);
-            
-            if (dist < 25f) { Collected = true; return; }
-            if (dist < 150f) {
-                Vector2 dir = Vector2.Normalize(playerPos - Position);
-                Position += dir * 250f * 0.016f; // Ресурсы сами летят к игроку
-            }
+            Vector2 dir = Vector2.Normalize(playerPos - Position);
+            Position += dir * 250f * dt;
         }
     }
 }

@@ -1,11 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "S01xgX3egtg=",
+  "dgSpecHash": "vijOY5bbpfc=",
   "success": true,
   "projectFilePath": "C:\\Users\\Пользователь\\RiderProjects\\Somnia.git\\Somnia.Tests\\Somnia.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Пользователь\\.nuget\\packages\\anthropic.sdk\\5.10.0\\anthropic.sdk.5.10.0.nupkg.sha512",
-    "C:\\Users\\Пользователь\\.nuget\\packages\\coverlet.collector\\6.0.4\\coverlet.collector.6.0.4.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.applicationinsights\\2.23.0\\microsoft.applicationinsights.2.23.0.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\10.0.3\\microsoft.bcl.asyncinterfaces.10.0.3.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.codecoverage\\18.3.0\\microsoft.codecoverage.18.3.0.nupkg.sha512",
@@ -27,7 +26,18 @@
     "C:\\Users\\Пользователь\\.nuget\\packages\\nunit\\4.3.2\\nunit.4.3.2.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\nunit.analyzers\\4.7.0\\nunit.analyzers.4.7.0.nupkg.sha512",
     "C:\\Users\\Пользователь\\.nuget\\packages\\nunit3testadapter\\6.2.0\\nunit3testadapter.6.2.0.nupkg.sha512",
-    "C:\\Users\\Пользователь\\.nuget\\packages\\nvorbis\\0.10.4\\nvorbis.0.10.4.nupkg.sha512"
+    "C:\\Users\\Пользователь\\.nuget\\packages\\nvorbis\\0.10.4\\nvorbis.0.10.4.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.collections.immutable\\8.0.0\\system.collections.immutable.8.0.0.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.diagnostics.diagnosticsource\\5.0.0\\system.diagnostics.diagnosticsource.5.0.0.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.io.pipelines\\10.0.3\\system.io.pipelines.10.0.3.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.memory\\4.5.3\\system.memory.4.5.3.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.reflection.metadata\\8.0.0\\system.reflection.metadata.8.0.0.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.text.encodings.web\\10.0.3\\system.text.encodings.web.10.0.3.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.text.json\\10.0.3\\system.text.json.10.0.3.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\system.valuetuple\\4.5.0\\system.valuetuple.4.5.0.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.14\\microsoft.netcore.app.ref.9.0.14.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.14\\microsoft.windowsdesktop.app.ref.9.0.14.nupkg.sha512",
+    "C:\\Users\\Пользователь\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.14\\microsoft.aspnetcore.app.ref.9.0.14.nupkg.sha512"
   ],
   "logs": []
 }

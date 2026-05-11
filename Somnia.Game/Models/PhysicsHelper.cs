@@ -1,38 +1,47 @@
-using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 
-namespace Somnia.Game.Models
+namespace Somnia.Game.Models;
+
+public static class PhysicsHelper
 {
-    public static class PhysicsHelper
-    {
-        public static void ResolveHexCollision(ref Vector2 pos, float radius, HexagonModel hex)
-        {
-            Vector2 roofC = hex.Center - new Vector2(0, hex.WallHeight);
-            Vector2 lp = pos - roofC;
-            
-            // ОБРАТНАЯ ТРАНСФОРМАЦИЯ: превращаем наклонный овал обратно в ровный круг
-            float untransformedY = (lp.Y + lp.X * hex.Tilt) / hex.Squash;
-            Vector2 pClean = new Vector2(lp.X, untransformedY);
-            
-            float s32 = 0.8660254f; float apothem = hex.Radius * s32;
-            if (pClean.LengthSquared() > Math.Pow(hex.Radius + radius, 2)) return;
+    private const float Cos30 = 0.8660254f;
 
-            var ns = new List<Vector2>(); // Нормали Flat-topped
-            ns.Add(new(1, 0)); ns.Add(new(0.5f, s32)); ns.Add(new(-0.5f, s32));
-            ns.Add(new(-1, 0)); ns.Add(new(-0.5f, -s32)); ns.Add(new(0.5f, -s32));
-            
-            float maxD = -9999f; Vector2 bestN = Vector2.UnitX;
-            foreach (var n in ns) {
-                float d = Vector2.Dot(pClean, n) - apothem;
-                if (d > maxD) { maxD = d; bestN = n; }
-            }
-            
-            if (maxD < radius) {
-                Vector2 push = bestN * (radius - maxD);
-                // Сжимаем вектор выталкивания обратно под угол
-                pos += new Vector2(push.X, (push.Y * hex.Squash) - (push.X * hex.Tilt));
-            }
+    public static void ResolveHexCollision(ref Vector2 pos, float playerRadius, HexagonModel hex)
+    {
+        var roofCenter = hex.Center - new Vector2(0, hex.WallHeight);
+        var local = pos - roofCenter;
+
+        var untransformedY = (local.Y + local.X * hex.Tilt) / hex.Squash;
+        var clean = new Vector2(local.X, untransformedY);
+
+        var apothem = hex.Radius * Cos30;
+        if (clean.LengthSquared() > Math.Pow(hex.Radius + playerRadius, 2)) return;
+
+        var normals = new List<Vector2>
+        {
+            new(1, 0),
+            new(0.5f, Cos30),
+            new(-0.5f, Cos30),
+            new(-1, 0),
+            new(-0.5f, -Cos30),
+            new(0.5f, -Cos30)
+        };
+
+        var maxD = -9999f;
+        var bestN = Vector2.UnitX;
+        foreach (var n in normals)
+        {
+            var d = Vector2.Dot(clean, n) - apothem;
+            if (d <= maxD) continue;
+            maxD = d;
+            bestN = n;
         }
+
+        if (!(maxD < playerRadius)) return;
+
+        var push = bestN * (playerRadius - maxD);
+        pos += new Vector2(push.X, push.Y * hex.Squash - push.X * hex.Tilt);
     }
 }

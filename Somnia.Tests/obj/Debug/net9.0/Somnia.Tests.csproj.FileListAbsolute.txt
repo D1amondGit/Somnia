@@ -182,3 +182,15 @@ C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debu
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.pdb
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.genruntimeconfig.cache
 C:\Users\Пользователь\RiderProjects\SomniaGame\Somnia.Tests\obj\Debug\net9.0\ref\Somnia.Tests.dll
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\bin\Debug\net9.0\.msCoverageSourceRootsMapping_Somnia.Tests
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.csproj.AssemblyReference.cache
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.gentestingplatformentrypointinputcache.cache
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.genautoregisteredextensionsinputcache.cache
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.AssemblyInfoInputs.cache
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.AssemblyInfo.cs
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.csproj.CoreCompileInputs.cache
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.sourcelink.json
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.dll
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\refint\Somnia.Tests.dll
+C:\Users\Пользователь\RiderProjects\Somnia.git\Somnia.Tests\obj\Debug\net9.0\Somnia.Tests.pdb
