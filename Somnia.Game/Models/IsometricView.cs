@@ -9,5 +9,5 @@ namespace Somnia.Game.Models;
 public static class IsometricView
 {
     public const float Squash = 0.55f;
-    public const float Tilt = 0.09f;
+    public const float Tilt = 0.18f;
 }

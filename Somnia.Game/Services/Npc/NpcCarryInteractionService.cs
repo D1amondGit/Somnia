@@ -6,6 +6,14 @@ namespace Somnia.Game.Services.Npc;
 
 public sealed class NpcCarryInteractionService
 {
+    /// <summary>Снимает NPC с игрока (то же состояние, что и при отпускании по E).</summary>
+    public static void DropCarriedNpc(PlayerModel player, NpcModel npc)
+    {
+        if (player.State != PlayerState.Carrying) return;
+        player.SetState(PlayerState.Free);
+        npc.IsPickedUp = false;
+    }
+
     public void TryToggle(KeyboardState previous, KeyboardState current, PlayerModel player, NpcModel npc)
     {
         if (previous.IsKeyDown(Keys.E) || !current.IsKeyDown(Keys.E)) return;
@@ -16,9 +24,6 @@ public sealed class NpcCarryInteractionService
             npc.IsPickedUp = true;
         }
         else if (player.State == PlayerState.Carrying)
-        {
-            player.SetState(PlayerState.Free);
-            npc.IsPickedUp = false;
-        }
+            DropCarriedNpc(player, npc);
     }
 }

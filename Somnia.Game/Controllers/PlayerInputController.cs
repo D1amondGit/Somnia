@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Somnia.Game.Models;
 using Somnia.Game.Services.Combat;
+using Somnia.Game.Services.Npc;
 
 namespace Somnia.Game.Controllers;
 
@@ -39,8 +40,9 @@ public sealed class PlayerInputController
         if (ks.IsKeyDown(Keys.D2)) _player.ActiveSlot = 1;
         if (ks.IsKeyDown(Keys.D3)) _player.ActiveSlot = 2;
 
-        if (ms.LeftButton == ButtonState.Pressed && _prevM.LeftButton == ButtonState.Released && _player.State != PlayerState.Carrying)
+        if (ms.LeftButton == ButtonState.Pressed && _prevM.LeftButton == ButtonState.Released)
         {
+            NpcCarryInteractionService.DropCarriedNpc(_player, ctx.Npc);
             _combat.TryUseActiveSkill(_player, worldM,
                 ctx.Enemies, ctx.Npc, ctx.Walls, ctx.PlayerProjectiles);
         }

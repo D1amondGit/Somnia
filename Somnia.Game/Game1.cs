@@ -4,12 +4,13 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Somnia.Game.Controllers;
 using Somnia.Game.Models;
+using Somnia.Game.Services.Audio;
 using Somnia.Game.Session;
 using Somnia.Game.Views;
 
 namespace Somnia.Game;
 
-/// <summary>Точка входа MonoGame: загрузка контента и делегирование кадров оркестратору.</summary>
+/// <summary>Точка входа MonoGame. Тонкая, делегирует кадры оркестратору и видам.</summary>
 public class Game1 : Microsoft.Xna.Framework.Game
 {
     private readonly GraphicsDeviceManager _gfx;
@@ -18,10 +19,20 @@ public class Game1 : Microsoft.Xna.Framework.Game
     private GameplayOrchestrator _orchestrator = null!;
     private WorldSceneView _worldScene = null!;
     private HudView _hudView = null!;
+    private MenuView _menuView = null!;
+    private SettingsView _settingsView = null!;
+    private MenuController _menuController = null!;
+    private SettingsController _settingsController = null!;
+    private readonly SettingsState _settingsState = new();
+    private int _phaseBeforeSettings;
+    private AudioController _audio = null!;
+    private SkillIconAtlas _iconAtlas = null!;
     private SpriteFont? _font;
     private Texture2D? _wallTex;
+    private Texture2D? _floorTex;
     private KeyboardState _prevKeyboard;
     private readonly Random _random = new();
+    private bool _combatTrackOn;
 
     public Game1()
     {
@@ -38,8 +49,15 @@ public class Game1 : Microsoft.Xna.Framework.Game
     {
         _session.Player = new PlayerModel(Vector2.Zero);
         _session.Npc = new NpcModel(Vector2.Zero);
+        _session.Waves = new Services.Waves.WaveManager();
         _orchestrator = new GameplayOrchestrator(_session.Player);
-        _orchestrator.RestartGame(_session, _gfx.PreferredBackBufferWidth, _gfx.PreferredBackBufferHeight, _random);
+        _menuController = new MenuController();
+        _settingsController = new SettingsController();
+        _audio = new AudioController();
+
+        _session.PlayArea = new Rectangle(0, 0, _gfx.PreferredBackBufferWidth, _gfx.PreferredBackBufferHeight);
+        _session.UiState = GameplayPhase.Title;
+
         base.Initialize();
     }
 
@@ -48,24 +66,19 @@ public class Game1 : Microsoft.Xna.Framework.Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _worldScene = new WorldSceneView(GraphicsDevice);
         _hudView = new HudView(GraphicsDevice);
+        _menuView = new MenuView(GraphicsDevice);
+        _settingsView = new SettingsView(GraphicsDevice);
+        _iconAtlas = new SkillIconAtlas();
 
-        try
-        {
-            _font = Content.Load<SpriteFont>("MainFont");
-        }
-        catch
-        {
-            _font = null;
-        }
+        try { _font = Content.Load<SpriteFont>("MainFont"); } catch { _font = null; }
+        try { _wallTex = Content.Load<Texture2D>("wall"); } catch { _wallTex = null; }
+        try { _floorTex = Content.Load<Texture2D>("floor"); } catch { _floorTex = null; }
 
-        try
-        {
-            _wallTex = Content.Load<Texture2D>("wall");
-        }
-        catch
-        {
-            _wallTex = null;
-        }
+        _audio.LoadContent(Content);
+        _audio.PlayMenuTrack();
+
+        _iconAtlas.LoadContent(Content);
+        _hudView.UseIconAtlas(_iconAtlas);
     }
 
     protected override void Update(GameTime gameTime)
@@ -73,32 +86,134 @@ public class Game1 : Microsoft.Xna.Framework.Game
         var keyboard = Keyboard.GetState();
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
-        if (keyboard.IsKeyDown(Keys.Escape) && _prevKeyboard.IsKeyUp(Keys.Escape))
-            _session.UiState = _session.UiState == 0 ? 1 : 0;
+        if (_session.UiState == GameplayPhase.Playing
+            && (_session.Player.IsDead || _session.Npc.IsDead))
+        {
+            _session.UiState = GameplayPhase.GameOver;
+            _audio.PlayMenuTrack();
+            _combatTrackOn = false;
+        }
 
-        if (_session.Player.IsDead || _session.Npc.IsDead)
-            _session.UiState = 2;
+        HandleMenuInput(keyboard);
+        ToggleCombatTrack();
 
-        if ((_session.UiState == 2 || _session.UiState == 1) && keyboard.IsKeyDown(Keys.Enter))
-            _orchestrator.RestartGame(_session, _gfx.PreferredBackBufferWidth, _gfx.PreferredBackBufferHeight,
-                _random);
+        if (_session.UiState == GameplayPhase.Playing)
+        {
+            // Скрытый шорткат на босс-арену: Ctrl + Shift + B (один раз по нажатию B).
+            if (keyboard.IsKeyDown(Keys.LeftControl) && keyboard.IsKeyDown(Keys.LeftShift) &&
+                keyboard.IsKeyDown(Keys.B) && _prevKeyboard.IsKeyUp(Keys.B))
+                _orchestrator.DebugJumpToBossArena(_session, _random);
 
-        if (_session.UiState == 0)
-            _orchestrator.SimulatePlayingFrame(_session, dt, keyboard, _prevKeyboard, Matrix.Identity);
+            // Секретная мясорубка: Ctrl + Shift + M.
+            if (keyboard.IsKeyDown(Keys.LeftControl) && keyboard.IsKeyDown(Keys.LeftShift) &&
+                keyboard.IsKeyDown(Keys.M) && _prevKeyboard.IsKeyUp(Keys.M))
+                _orchestrator.DebugEnterSecretMeatGrinder(_session, _random);
+
+            try
+            {
+                _orchestrator.SimulatePlayingFrame(_session, dt, keyboard, _prevKeyboard,
+                    _session.Camera.InputTransform);
+            }
+            catch (System.Exception ex)
+            {
+                // Запишем в консоль/Output, но не валим всю игру.
+                System.Console.Error.WriteLine($"[Somnia] frame error: {ex}");
+                System.Diagnostics.Debug.WriteLine($"[Somnia] frame error: {ex}");
+            }
+        }
 
         _prevKeyboard = keyboard;
         base.Update(gameTime);
+    }
+
+    private void HandleMenuInput(KeyboardState keyboard)
+    {
+        // Экран настроек — отдельный обработчик.
+        if (_session.UiState == GameplayPhase.Settings)
+        {
+            var settingsCmd = _settingsController.Update(keyboard, _settingsState, _audio);
+            if (settingsCmd == SettingsController.SettingsCommand.Back)
+                _session.UiState = _phaseBeforeSettings;
+            return;
+        }
+
+        // Пауза по ESC во время игры
+        if (_session.UiState == GameplayPhase.Playing
+            && keyboard.IsKeyDown(Keys.Escape) && _prevKeyboard.IsKeyUp(Keys.Escape))
+        {
+            _session.UiState = GameplayPhase.Paused;
+            return;
+        }
+
+        var cmd = _menuController.Update(_prevKeyboard, keyboard, _session.UiState);
+        switch (cmd)
+        {
+            case MenuCommand.StartNewRun:
+            case MenuCommand.RestartRun:
+                _orchestrator.RestartGame(_session,
+                    _gfx.PreferredBackBufferWidth,
+                    _gfx.PreferredBackBufferHeight,
+                    _random);
+                break;
+            case MenuCommand.Resume:
+                _session.UiState = GameplayPhase.Playing;
+                break;
+            case MenuCommand.OpenSettings:
+                _phaseBeforeSettings = _session.UiState;
+                _session.UiState = GameplayPhase.Settings;
+                break;
+            case MenuCommand.ReturnToTitle:
+                _session.SecretMeatVictory = false;
+                _session.UiState = GameplayPhase.Title;
+                break;
+            case MenuCommand.Quit:
+                if (_session.UiState == GameplayPhase.Title) Exit();
+                break;
+        }
+    }
+
+    private void ToggleCombatTrack()
+    {
+        var shouldPlayCombat = _session.UiState == GameplayPhase.Playing;
+        if (shouldPlayCombat == _combatTrackOn) return;
+        _combatTrackOn = shouldPlayCombat;
+        if (shouldPlayCombat) _audio.PlayCombatTrack(); else _audio.PlayMenuTrack();
     }
 
     protected override void Draw(GameTime gameTime)
     {
         GraphicsDevice.Clear(new Color(10, 12, 16));
 
-        _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        if (_session.UiState == GameplayPhase.Title)
+        {
+            _spriteBatch.Begin();
+            _menuView.Draw(_spriteBatch, _font,
+                _gfx.PreferredBackBufferWidth,
+                _gfx.PreferredBackBufferHeight,
+                gameTime.TotalGameTime.TotalSeconds);
+            _spriteBatch.End();
+            base.Draw(gameTime);
+            return;
+        }
+
+        if (_session.UiState == GameplayPhase.Settings)
+        {
+            _spriteBatch.Begin();
+            _settingsView.Draw(_spriteBatch, _font,
+                _gfx.PreferredBackBufferWidth,
+                _gfx.PreferredBackBufferHeight,
+                _settingsState, _audio);
+            _spriteBatch.End();
+            base.Draw(gameTime);
+            return;
+        }
+
+        _spriteBatch.Begin(samplerState: SamplerState.PointClamp,
+            transformMatrix: _session.Camera.WorldTransform);
         _worldScene.Draw(
             _spriteBatch,
             _session.PlayArea,
-            _session.ArenaLayoutSeed,
+            _floorTex,
             _session.Player,
             _session.Enemies,
             _session.Zones,
@@ -110,8 +225,10 @@ public class Game1 : Microsoft.Xna.Framework.Game
             _session.FloatingTexts,
             _font,
             _session.EnemyProjectiles,
-            _session.PlayerProjectiles);
-
+            _session.PlayerProjectiles,
+            _session.FloorSplatters,
+            _session.WallSparkles,
+            gameTime.TotalGameTime.TotalSeconds);
         _spriteBatch.End();
 
         _spriteBatch.Begin();
@@ -122,9 +239,26 @@ public class Game1 : Microsoft.Xna.Framework.Game
             _font,
             _gfx.PreferredBackBufferWidth,
             _gfx.PreferredBackBufferHeight,
-            _session.UiState,
-            _session.Waves.CurrentArena + 1,
-            gameTime.TotalGameTime.TotalSeconds);
+            _session.Waves.IsSecretMeatGrinder ? -1 : _session.Waves.CurrentArena + 1,
+            gameTime.TotalGameTime.TotalSeconds,
+            _session.ArenaTimer,
+            GameplayOrchestrator.ArenaTimerMaxSeconds);
+
+        switch (_session.UiState)
+        {
+            case GameplayPhase.Paused:
+                _menuView.DrawPauseOverlay(_spriteBatch, _font,
+                    _gfx.PreferredBackBufferWidth, _gfx.PreferredBackBufferHeight);
+                break;
+            case GameplayPhase.GameOver:
+                _menuView.DrawGameOverOverlay(_spriteBatch, _font,
+                    _gfx.PreferredBackBufferWidth, _gfx.PreferredBackBufferHeight,
+                    playerDead: _session.Player.IsDead,
+                    victory: !_session.Player.IsDead && !_session.Npc.IsDead &&
+                             (_session.Waves.AllArenasCleared || _session.SecretMeatVictory));
+                break;
+        }
+
         _spriteBatch.End();
 
         base.Draw(gameTime);

@@ -28,4 +28,15 @@ public sealed class WaveManagerTests
         for (var i = 0; i < WaveManager.ArenaCount; i++) wm.AdvanceArena();
         Assert.That(wm.AllArenasCleared, Is.True);
     }
+
+    [Test]
+    public void SecretMeatGrinder_SpawnsLargeMixedRoster()
+    {
+        var wm = new WaveManager();
+        wm.EnterSecretMeatGrinderMode();
+        var enemies = wm.SpawnCurrentWave(1280, 720);
+        wm.ExitSecretMeatGrinderMode();
+
+        Assert.That(enemies.Count, Is.GreaterThanOrEqualTo(38));
+    }
 }

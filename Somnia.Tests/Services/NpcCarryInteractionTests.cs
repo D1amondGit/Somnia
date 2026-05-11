@@ -30,4 +30,18 @@ public sealed class NpcCarryInteractionTests
         svc.TryToggle(held, held, p, n);
         Assert.That(p.State, Is.EqualTo(PlayerState.Free));
     }
+
+    [Test]
+    public void DropCarriedNpc_ClearsCarry_AndNoOpWhenFree()
+    {
+        var p = new PlayerModel(new Vector2(100, 100)) { State = PlayerState.Carrying };
+        var n = new NpcModel(new Vector2(120, 100)) { IsPickedUp = true };
+
+        NpcCarryInteractionService.DropCarriedNpc(p, n);
+        Assert.That(p.State, Is.EqualTo(PlayerState.Free));
+        Assert.That(n.IsPickedUp, Is.False);
+
+        NpcCarryInteractionService.DropCarriedNpc(p, n);
+        Assert.That(p.State, Is.EqualTo(PlayerState.Free));
+    }
 }

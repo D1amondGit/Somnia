@@ -13,17 +13,32 @@ public interface IPlayerCombatService
     bool TryUseActiveSkill(PlayerModel player, Vector2 aimWorld,
         List<EnemyModel> enemies, NpcModel npc, List<HexagonModel> walls,
         List<PlayerProjectileModel> spawnProjectiles);
+
+    /// <summary>Возвращает и сбрасывает накопленный «recoil trauma» — тряску камеры
+    /// от выстрелов с отдачей (дробовик, снайперка, лёгкая от автомата).</summary>
+    float ConsumeRecoilShake();
 }
 
 public sealed class PlayerCombatService : IPlayerCombatService
 {
     private readonly ILineOfSightService _los;
 
-    private const float PelletSpeed = 1150f;
-    private const float BoltSpeed = 1350f;
+    private const float PelletSpeed = 1300f;
+    private const float BoltSpeed = 1500f;
+    private const float SniperSpeed = 2400f;
     private const float RocketSpeed = 950f;
+    private const float GrenadeSpeed = 700f;
+
+    private float _recoilShakeAccum;
 
     public PlayerCombatService(ILineOfSightService los) => _los = los;
+
+    public float ConsumeRecoilShake()
+    {
+        var v = _recoilShakeAccum;
+        _recoilShakeAccum = 0f;
+        return v;
+    }
 
     public bool TryUseActiveSkill(PlayerModel player, Vector2 aimWorld,
         List<EnemyModel> enemies, NpcModel npc, List<HexagonModel> walls,
@@ -53,28 +68,32 @@ public sealed class PlayerCombatService : IPlayerCombatService
     private bool UseRed(PlayerModel p, Vector2 dir, List<EnemyModel> enemies, NpcModel npc, float m,
         List<HexagonModel> walls, List<PlayerProjectileModel> projs)
     {
-        if (p.ActiveSlot == 0 && p.ConsumeMana(10f))
+        // Слот 0 — ДРОБОВИК: короткая дистанция, большой урон, отдача, большой КД.
+        if (p.ActiveSlot == 0 && p.ConsumeMana(15f))
         {
-            const int pelletCount = 6;
-            var spread = 0.35f;
+            const int pelletCount = 7;
+            const float spread = 0.45f;
             for (var i = 0; i < pelletCount; i++)
             {
-                var t = pelletCount == 1 ? 0f : (i / (float)(pelletCount - 1)) * 2f - 1f;
+                var t = (i / (float)(pelletCount - 1)) * 2f - 1f;
                 var shotDir = Rotate(dir, t * spread);
 
                 projs.Add(new PlayerProjectileModel
                 {
                     Position = p.Position + shotDir * 25f,
                     Velocity = shotDir * PelletSpeed,
-                    Damage = 100f * m / pelletCount,
-                    Knockback = 900f,
+                    Damage = 35f * m,
+                    Knockback = 950f,
                     DamageSource = p.Position,
-                    LifeRemaining = 1.2f,
+                    LifeRemaining = 0.25f,
+                    MaxTravelDistance = 320f,
                     Kind = PlayerProjectileKind.Pellet
                 });
             }
 
-            p.MaxCd1 = 0.5f;
+            p.ApplyKnockback(-dir * 380f);
+            _recoilShakeAccum += 0.32f;
+            p.MaxCd1 = 1.1f;
             return true;
         }
 
@@ -83,7 +102,9 @@ public sealed class PlayerCombatService : IPlayerCombatService
             var t = GetClosestEntity(p, dir, enemies, npc, 800f, 0.4f, walls);
             if (t is EnemyModel em)
             {
-                em.Velocity += Vector2.Normalize(p.Position - em.Position) * 1500f;
+                var pull = p.Position - em.Position;
+                if (pull.LengthSquared() > 1e-4f)
+                    em.Velocity += Vector2.Normalize(pull) * 1500f;
                 em.TakeDamage(10f, p.Position, 0f);
             }
             else if (t is NpcModel nm) nm.Position = Vector2.Lerp(nm.Position, p.Position, 0.85f);
@@ -120,46 +141,57 @@ public sealed class PlayerCombatService : IPlayerCombatService
     private bool UseGreen(PlayerModel p, Vector2 dir, List<EnemyModel> enemies, float m,
         List<HexagonModel> walls, List<PlayerProjectileModel> projs)
     {
-        if (p.ActiveSlot == 0)
+        // Слот 0 — ГРАНАТА: AoE, хилит игрока и NPC, отравляет врагов.
+        if (p.ActiveSlot == 0 && p.ConsumeMana(25f))
         {
-            if (p.CurrentMana < 10f) return false;
-            var t = GetClosestEntity(p, dir, enemies, null, 1000f, 0.8f, walls);
-            if (t is not EnemyModel em) return false;
-            if (!p.ConsumeMana(10f)) return false;
-
-            var shotDir = em.Position - p.Position;
-            if (shotDir == Vector2.Zero) return false;
-            shotDir.Normalize();
-
             projs.Add(new PlayerProjectileModel
             {
-                Position = p.Position + shotDir * 22f,
-                Velocity = shotDir * BoltSpeed,
-                Damage = 40f * m,
-                Knockback = 200f,
+                Position = p.Position + dir * 28f,
+                Velocity = dir * GrenadeSpeed,
+                Damage = 30f * m,
+                Knockback = 0f,
                 DamageSource = p.Position,
-                LifeRemaining = 1.5f,
-                Kind = PlayerProjectileKind.Bolt
+                LifeRemaining = 1.8f,
+                MaxTravelDistance = 520f,
+                ExplosionRadius = 260f,
+                HealAmount = 45f,
+                PoisonDuration = 1.8f,
+                Kind = PlayerProjectileKind.Grenade
             });
 
-            p.MaxCd1 = 0.8f;
+            p.MaxCd1 = 1.6f;
             return true;
         }
 
+        // Слот 1 — ЩИТ: входящий урон режется на 65%, всех врагов в радиусе резко выталкивает.
         if (p.ActiveSlot == 1 && p.ConsumeMana(30f))
         {
-            p.BeginGreenAura(4f);
+            p.BeginShield(durationSeconds: 3.5f, radius: 240f, reduction: 0.65f);
+
+            // Активирующий импульс — отталкивающий «толчок» по всему радиусу.
+            foreach (var e in enemies)
+            {
+                if (e.IsDead) continue;
+                var diff = e.Position - p.Position;
+                var d = diff.Length();
+                if (d <= 0f || d > 240f) continue;
+                e.Velocity += Vector2.Normalize(diff) * (1200f * (1f - d / 240f) + 200f);
+            }
+
             p.MaxCd2 = 5f;
             return true;
         }
 
-        if (p.ActiveSlot == 2 && p.ConsumeMana(40f))
+        // Слот 2 — ЗАРАЖЕНИЕ: основная цель + цепная передача через HandleInfection в AI.
+        if (p.ActiveSlot == 2 && p.ConsumeMana(35f))
         {
-            var t = GetClosestEntity(p, dir, enemies, null, 1000f, 0.8f, walls);
+            var t = GetClosestEntity(p, dir, enemies, null, 1100f, 0.65f, walls);
             if (t is EnemyModel em)
             {
                 em.IsInfected = true;
-                em.InfectionTimer = 0.1f;
+                em.InfectionTimer = 0.6f;
+                // Урон по самому заражаемому, чтобы было ощущение касания.
+                em.TakeDamage(25f * m, p.Position, 200f);
             }
 
             p.MaxCd3 = 4f;
@@ -172,23 +204,25 @@ public sealed class PlayerCombatService : IPlayerCombatService
     private bool UseBlue(PlayerModel p, Vector2 dir, List<EnemyModel> enemies, float m,
         List<HexagonModel> walls, List<PlayerProjectileModel> projs)
     {
-        if (p.ActiveSlot == 0 && p.ConsumeMana(5f))
+        // Слот 0 — СНАЙПЕРКА: через всю арену, огромный урон, средний КД.
+        if (p.ActiveSlot == 0 && p.ConsumeMana(20f))
         {
-            if (!HasLosFromPlayer(p, p.Position + dir * 100f, walls)) return false;
+            if (!HasLosFromPlayer(p, p.Position + dir * 80f, walls)) return false;
 
             projs.Add(new PlayerProjectileModel
             {
-                Position = p.Position + dir * 18f,
-                Velocity = dir * BoltSpeed,
-                Damage = 15f * m,
-                Knockback = 100f,
+                Position = p.Position + dir * 22f,
+                Velocity = dir * SniperSpeed,
+                Damage = 180f * m,
+                Knockback = 600f,
                 DamageSource = p.Position,
-                LifeRemaining = 0.35f,
-                MaxTravelDistance = 170f,
+                LifeRemaining = 1.2f,
+                MaxTravelDistance = 2400f,
                 Kind = PlayerProjectileKind.Bolt
             });
 
-            p.MaxCd1 = 0.2f;
+            _recoilShakeAccum += 0.18f;
+            p.MaxCd1 = 1.5f;
             return true;
         }
 
@@ -219,23 +253,32 @@ public sealed class PlayerCombatService : IPlayerCombatService
     private bool UseNeutral(PlayerModel p, Vector2 dir, List<EnemyModel> enemies, float m,
         List<HexagonModel> walls, List<PlayerProjectileModel> projs)
     {
-        if (p.ActiveSlot == 0 && p.ConsumeMana(5f))
+        // Слот 0 — АВТОМАТ: средняя дистанция, очередь из 3 пуль, слабая отдача, малый КД.
+        if (p.ActiveSlot == 0 && p.ConsumeMana(6f))
         {
-            if (!HasLosFromPlayer(p, p.Position + dir * 80f, walls)) return false;
-
-            projs.Add(new PlayerProjectileModel
+            const int burst = 3;
+            const float spread = 0.06f;
+            for (var i = 0; i < burst; i++)
             {
-                Position = p.Position + dir * 16f,
-                Velocity = dir * BoltSpeed,
-                Damage = 25f * m,
-                Knockback = 300f,
-                DamageSource = p.Position,
-                LifeRemaining = 0.65f,
-                MaxTravelDistance = 620f,
-                Kind = PlayerProjectileKind.Bolt
-            });
+                var t = (i / (float)(burst - 1)) * 2f - 1f;
+                var shotDir = Rotate(dir, t * spread);
 
-            p.MaxCd1 = 0.3f;
+                projs.Add(new PlayerProjectileModel
+                {
+                    Position = p.Position + shotDir * (16f + i * 4f),
+                    Velocity = shotDir * BoltSpeed,
+                    Damage = 10f * m,
+                    Knockback = 180f,
+                    DamageSource = p.Position,
+                    LifeRemaining = 0.85f,
+                    MaxTravelDistance = 720f,
+                    Kind = PlayerProjectileKind.Bolt
+                });
+            }
+
+            p.ApplyKnockback(-dir * 60f);
+            _recoilShakeAccum += 0.08f;
+            p.MaxCd1 = 0.32f;
             return true;
         }
 

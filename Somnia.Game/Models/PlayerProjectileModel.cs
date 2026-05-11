@@ -12,21 +12,29 @@ public class PlayerProjectileModel
     public float Damage;
     public float Knockback;
     public Vector2 DamageSource;
+
     /// <summary>Макс. пройденная дистанция (0 = без лимита).</summary>
     public float MaxTravelDistance;
     public float DistanceTraveled;
     public PlayerProjectileKind Kind;
 
-    /// <summary>Урон по области при Kind == RocketImpact.</summary>
+    /// <summary>Радиус AoE для ракеты/гранаты.</summary>
     public float ExplosionRadius;
 
-    /// <summary>Уже нанесли взрыв (ракета).</summary>
+    /// <summary>Уже сработал взрыв/детонация.</summary>
     public bool Exploded;
+
+    /// <summary>HP, восстанавливаемые игроку и NPC при разрыве гранаты.</summary>
+    public float HealAmount;
+
+    /// <summary>Длительность яда (инфекции) на врагов при разрыве гранаты.</summary>
+    public float PoisonDuration;
 }
 
 public enum PlayerProjectileKind
 {
     Pellet,
     Bolt,
-    Rocket
+    Rocket,
+    Grenade
 }

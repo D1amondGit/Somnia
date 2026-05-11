@@ -5,9 +5,26 @@ using Somnia.Game.Models;
 
 namespace Somnia.Game.Services.AI;
 
-/// <summary>Поведение врагов: выбор цели, движение steering + сепарация, стрельба, инфекция.</summary>
+/// <summary>
+/// AI врагов с диспатчем по архетипу.
+/// Каждый <see cref="EnemyType"/> уходит в свой обработчик; общая логика (инфекция, выбор цели,
+/// LOS, steering) выделена в private-методы.
+/// </summary>
 public sealed class EnemyAiService
 {
+    /// <summary>Сколько травмы добавлять камере, когда чарджер взрывается.</summary>
+    public const float ChargerExplosionTrauma = 0.5f;
+
+    private float _accumulatedTrauma;
+
+    /// <summary>Накопленный за кадр запрос на тряску — оркестратор зачитывает и сбрасывает.</summary>
+    public float ConsumeTrauma()
+    {
+        var t = _accumulatedTrauma;
+        _accumulatedTrauma = 0f;
+        return t;
+    }
+
     public void Update(
         float dt,
         List<EnemyModel> enemies,
@@ -15,48 +32,166 @@ public sealed class EnemyAiService
         NpcModel npc,
         Rectangle playArea,
         List<Vector3> walls,
-        List<ProjectileModel> projectiles)
+        List<ProjectileModel> projectiles,
+        List<HexagonModel>? destructibleWalls = null,
+        float arenaIntroGraceSeconds = 0f)
     {
         foreach (var enemy in enemies.Where(x => !x.IsDead))
         {
             HandleInfection(enemy, dt, enemies);
-            if (enemy.IsDummy || enemy.StunTimer > 0) continue;
+            if (enemy.IsDummy || enemy.StunTimer > 0)
+            {
+                ClampToArena(enemy, playArea);
+                continue;
+            }
 
             var target = SelectTarget(enemy, player, npc);
             var dist = Vector2.Distance(enemy.Position, target.Position);
 
-            if (enemy.Type == EnemyType.Shooter)
-                HandleShooter(enemy, player, dist, dt, walls, projectiles, enemies);
-            else
-                HandleMelee(enemy, target, dist, dt, walls, enemies);
+            switch (enemy.Type)
+            {
+                case EnemyType.Melee:
+                    HandleMelee(enemy, target, dist, dt, walls, enemies, arenaIntroGraceSeconds);
+                    break;
+                case EnemyType.Shooter:
+                    HandleShooter(enemy, player, dist, dt, walls, projectiles, enemies, arenaIntroGraceSeconds);
+                    break;
+                case EnemyType.Charger:
+                    HandleCharger(enemy, target, dist, dt, enemies, arenaIntroGraceSeconds);
+                    break;
+                case EnemyType.Sniper:
+                    HandleSniper(enemy, player, dist, dt, walls, projectiles, enemies, arenaIntroGraceSeconds);
+                    break;
+                case EnemyType.Boss:
+                {
+                    var strike = BossController.GetStrikeFocusWorld(enemy, player, npc);
+                    var distBoss = Vector2.Distance(enemy.Position, strike);
+                    BossController.Update(enemy, player, npc, distBoss, dt, walls, projectiles, destructibleWalls);
+                    break;
+                }
+            }
+
+            // После любого мува врага — не даём ему уйти за пределы карты.
+            // Граничные «стены» из BoundaryWalls стоят с зазором ~110px, но steering-сила
+            // отбрасывания иногда выпихивает врагов в этот зазор — отсюда «за край».
+            ClampToArena(enemy, playArea);
         }
+    }
+
+    /// <summary>Жёстко удерживает врага внутри игровой области с зазором на радиус тела.</summary>
+    private static void ClampToArena(EnemyModel enemy, Rectangle playArea)
+    {
+        var margin = MathHelper.Max(enemy.Archetype.BodyRadius, 12f);
+        enemy.Position = new Vector2(
+            MathHelper.Clamp(enemy.Position.X, playArea.Left + margin, playArea.Right - margin),
+            MathHelper.Clamp(enemy.Position.Y, playArea.Top + margin, playArea.Bottom - margin));
     }
 
     private static void HandleMelee(EnemyModel enemy, AiTarget target, float dist, float dt,
-        List<Vector3> walls, List<EnemyModel> all)
+        List<Vector3> walls, List<EnemyModel> all, float arenaIntroGraceSeconds)
     {
-        if (dist <= 65f && enemy.AttackCooldown <= 0)
+        var a = enemy.Archetype;
+        if (arenaIntroGraceSeconds <= 0f && dist <= a.MeleeReach && enemy.AttackCooldown <= 0)
         {
-            target.ApplyDamage(10f);
-            enemy.AttackCooldown = 1f;
+            target.ApplyDamage(a.MeleeDamage);
+            enemy.AttackCooldown = a.AttackCooldown;
+            return;
         }
-        else if (dist > 50f)
-        {
-            MoveSmart(enemy, target.Position, dt, baseSpeed: 150f, walls, all);
-        }
+
+        if (dist > a.MeleeReach * 0.8f)
+            MoveSmart(enemy, target.Position, dt, a.MoveSpeed, walls, all);
     }
 
     private static void HandleShooter(EnemyModel enemy, PlayerModel player, float dist, float dt,
-        List<Vector3> walls, List<ProjectileModel> projectiles, List<EnemyModel> all)
+        List<Vector3> walls, List<ProjectileModel> projectiles, List<EnemyModel> all,
+        float arenaIntroGraceSeconds)
     {
-        if (dist > 400f) MoveSmart(enemy, player.Position, dt, baseSpeed: 110f, walls, all);
+        var a = enemy.Archetype;
 
-        if (enemy.AttackCooldown > 0 || dist >= 800f) return;
+        if (dist > a.PreferredRange + 60f)
+            MoveSmart(enemy, player.Position, dt, a.MoveSpeed, walls, all);
+        else if (dist < a.PreferredRange - 80f)
+            MoveSmart(enemy, enemy.Position + (enemy.Position - player.Position), dt, a.MoveSpeed * 0.6f, walls, all);
+
+        if (arenaIntroGraceSeconds > 0f) return;
+        if (enemy.AttackCooldown > 0 || dist >= a.EngageRange) return;
         if (!HasLineOfSight(enemy.Position, player.Position, walls)) return;
 
         var dir = Vector2.Normalize(player.Position - enemy.Position);
-        projectiles.Add(new ProjectileModel(enemy.Position, dir * 450f, 10f));
-        enemy.AttackCooldown = 2.2f;
+        projectiles.Add(new ProjectileModel(enemy.Position, dir * a.ProjectileSpeed, a.ProjectileRadius));
+        enemy.AttackCooldown = a.AttackCooldown;
+        enemy.MuzzleFlashTimer = 0.10f;
+        enemy.MuzzleFlashDir = dir;
+    }
+
+    private void HandleCharger(EnemyModel enemy, AiTarget target, float dist, float dt,
+        List<EnemyModel> all, float arenaIntroGraceSeconds)
+    {
+        var a = enemy.Archetype;
+        var dir = target.Position - enemy.Position;
+        if (dir != Vector2.Zero)
+        {
+            dir.Normalize();
+            enemy.Position += dir * a.MoveSpeed * dt;
+        }
+
+        if (arenaIntroGraceSeconds <= 0f && dist <= a.MeleeReach && enemy.AttackCooldown <= 0)
+        {
+            target.ApplyDamage(a.MeleeDamage);
+            if (a.ExplodesOnContact)
+            {
+                enemy.Health = 0;
+                _accumulatedTrauma += ChargerExplosionTrauma;
+            }
+            enemy.AttackCooldown = a.AttackCooldown;
+        }
+    }
+
+    private static void HandleSniper(EnemyModel enemy, PlayerModel player, float dist, float dt,
+        List<Vector3> walls, List<ProjectileModel> projectiles, List<EnemyModel> all,
+        float arenaIntroGraceSeconds)
+    {
+        var a = enemy.Archetype;
+
+        if (dist < a.PreferredRange - 60f)
+            MoveSmart(enemy, enemy.Position + (enemy.Position - player.Position), dt, a.MoveSpeed, walls, all);
+        else if (dist > a.PreferredRange + 120f)
+            MoveSmart(enemy, player.Position, dt, a.MoveSpeed * 0.6f, walls, all);
+
+        if (arenaIntroGraceSeconds > 0f) return;
+
+        // Шаг 1: армируем телеграф
+        if (!enemy.TelegraphArmed
+            && enemy.AttackCooldown <= 0
+            && dist < a.EngageRange
+            && HasLineOfSight(enemy.Position, player.Position, walls))
+        {
+            enemy.TelegraphArmed = true;
+            enemy.TelegraphTimer = a.TelegraphTime;
+            return;
+        }
+
+        // Шаг 2: телеграф идёт — ничего не делаем, View рисует линию
+        if (enemy.IsTelegraphing) return;
+
+        // Шаг 3: телеграф истёк — стреляем
+        if (!enemy.TelegraphArmed) return;
+        enemy.TelegraphArmed = false;
+
+        if (!HasLineOfSight(enemy.Position, player.Position, walls))
+        {
+            enemy.AttackCooldown = 0.5f;
+            return;
+        }
+
+        var dir = Vector2.Normalize(player.Position - enemy.Position);
+        projectiles.Add(new ProjectileModel(enemy.Position, dir * a.ProjectileSpeed, a.ProjectileRadius)
+        {
+            LifeTime = 1.6f
+        });
+        enemy.AttackCooldown = a.AttackCooldown;
+        enemy.MuzzleFlashTimer = 0.14f;
+        enemy.MuzzleFlashDir = dir;
     }
 
     private static void MoveSmart(EnemyModel enemy, Vector2 target, float dt, float baseSpeed,
@@ -135,7 +270,8 @@ public sealed class EnemyAiService
 
     private static AiTarget SelectTarget(EnemyModel enemy, PlayerModel player, NpcModel npc)
     {
-        if (enemy.Type == EnemyType.Shooter) return AiTarget.ForPlayer(player);
+        if (enemy.Type == EnemyType.Shooter || enemy.Type == EnemyType.Sniper)
+            return AiTarget.ForPlayer(player);
 
         var npcActive = !npc.IsPickedUp && !npc.IsDead;
         if (player.State == PlayerState.Carrying || !npcActive) return AiTarget.ForPlayer(player);

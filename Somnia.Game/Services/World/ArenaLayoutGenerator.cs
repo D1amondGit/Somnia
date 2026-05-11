@@ -15,19 +15,23 @@ namespace Somnia.Game.Services.World;
 public sealed class ArenaLayoutGenerator
 {
     public const float ObstacleRadius = 110f;
-    public const float ObstacleWallHeight = 90f;
+    /// <summary>Высота стен-препятствий. Пониже — стены меньше закрывают обзор и поворот гекса
+    /// читается лучше. Не путать с <see cref="ArenaHexGrid"/>, у которого свои размеры пола.</summary>
+    public const float ObstacleWallHeight = 48f;
     public const float BoundaryRadius = 215f;
-    public const float BoundaryWallHeight = 95f;
+    public const float BoundaryWallHeight = 70f;
 
     public ArenaLayout Generate(Rectangle playArea, int seed, int anomalyTargetCount = 12)
     {
         var rnd = new Random(seed);
         var anomalyTypes = new[] { AnomalyType.Red, AnomalyType.Blue, AnomalyType.Green };
 
-        var zones = ScatterZonesStratified(playArea, rnd, anomalyTypes, anomalyTargetCount);
+        var zones = ScatterZonesStratified(playArea, rnd, anomalyTypes,
+            Math.Max(anomalyTargetCount, 15));
 
         var walls = new List<HexagonModel>();
         BuildBoundaryWalls(playArea, walls);
+        BuildBarrierLines(playArea, rnd, zones, walls);
         ScatterFixedSizeObstacles(playArea, rnd, zones, walls);
 
         return new ArenaLayout(zones, walls, seed);
@@ -70,8 +74,8 @@ public sealed class ArenaLayoutGenerator
         {
             if (zones.Count >= targetCount) break;
 
-            var jitterX = ((float)rnd.NextDouble() - 0.5f) * cellW * 0.55f;
-            var jitterY = ((float)rnd.NextDouble() - 0.5f) * cellH * 0.55f;
+            var jitterX = ((float)rnd.NextDouble() - 0.5f) * cellW * 0.68f;
+            var jitterY = ((float)rnd.NextDouble() - 0.5f) * cellH * 0.68f;
 
             var cx = playArea.Left + marginX + cellW * (c + 0.5f) + jitterX;
             var cy = playArea.Top + marginY + cellH * (r + 0.5f) + jitterY;
@@ -80,8 +84,8 @@ public sealed class ArenaLayoutGenerator
             if (Vector2.Distance(center, spawnZone) < 180f) continue;
             if (Vector2.Distance(center, gateZone) < 180f) continue;
 
-            var zr = rnd.Next(100, 145);
-            if (zones.Any(z => Vector2.Distance(center, z.Center) < (z.Radius + zr) * 0.55f)) continue;
+            var zr = rnd.Next(118, 178);
+            if (zones.Any(z => Vector2.Distance(center, z.Center) < (z.Radius + zr) * 0.48f)) continue;
 
             var outline = ZoneShapeFactory.BuildOrganicOutline(center, zr, rnd);
             zones.Add(new AnomalyZone(center, zr, types[rnd.Next(types.Length)], outline));
@@ -172,9 +176,53 @@ public sealed class ArenaLayoutGenerator
             if (walls.Any(w => Vector2.Distance(center, w.Center) < minObstacleDistance &&
                                w.Radius <= ObstacleRadius + 1f)) continue;
 
+            // Каждая стена крутится на один из «дискретных» углов, чтобы поворот был
+            // визуально читаемым (не путался с 6-fold симметрией хекса).
+            var rotation = ObstacleRotations[rnd.Next(ObstacleRotations.Length)];
             walls.Add(new HexagonModel(center, ObstacleRadius, ObstacleWallHeight,
-                ArenaHexGrid.Squash, ArenaHexGrid.Tilt));
+                ArenaHexGrid.Squash, ArenaHexGrid.Tilt, rotation));
             placed++;
+        }
+    }
+
+    private static readonly float[] ObstacleRotations =
+    {
+        0f, MathHelper.Pi / 12f, MathHelper.Pi / 8f, MathHelper.Pi / 6f,
+        -MathHelper.Pi / 12f, -MathHelper.Pi / 8f, -MathHelper.Pi / 6f,
+    };
+
+    /// <summary>
+    /// Две вертикальные «стенки-барьера» с проходами в случайных местах.
+    /// Создают лабиринтоподобную геометрию: NPC выгодно нести в обход,
+    /// игрок может прятаться за барьером от снайперов.
+    /// </summary>
+    private static void BuildBarrierLines(Rectangle playArea, Random rnd,
+        List<AnomalyZone> zones, List<HexagonModel> walls)
+    {
+        float[] xPositions =
+        {
+            playArea.Left + playArea.Width * 0.36f,
+            playArea.Left + playArea.Width * 0.66f
+        };
+
+        const int hexCount = 6;
+        var stepY = playArea.Height / (float)(hexCount + 1);
+
+        foreach (var x in xPositions)
+        {
+            var gap = rnd.Next(hexCount);
+            for (var i = 0; i < hexCount; i++)
+            {
+                if (i == gap) continue;
+                if (i == (gap + 1) % hexCount) continue;
+
+                var pos = new Vector2(x, playArea.Top + stepY * (i + 1));
+                if (zones.Any(z => z.ContainsPoint(pos))) continue;
+
+                var rotation = ObstacleRotations[rnd.Next(ObstacleRotations.Length)];
+                walls.Add(new HexagonModel(pos, ObstacleRadius, ObstacleWallHeight,
+                    ArenaHexGrid.Squash, ArenaHexGrid.Tilt, rotation));
+            }
         }
     }
 

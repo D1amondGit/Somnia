@@ -4,12 +4,17 @@ namespace Somnia.Game.Models;
 
 public class PlayerModel
 {
-    public const float SpeedFree = 300f;
-    public const float SpeedCarrying = 150f;
-    public const float SpeedDashing = 800f;
+    public const float SpeedFree = 430f;
+    public const float SpeedCarrying = 320f;
+    public const float SpeedDashing = 1100f;
+    public const float ManaRegenPerSec = 18f;
 
     public Vector2 Position, FacingDir = Vector2.UnitX;
-    public PlayerState State { get; private set; } = PlayerState.Free;
+
+    /// <summary>Доп. импульс (отдача от выстрелов, толчки). Затухает в TickCooldowns.</summary>
+    public Vector2 KnockbackVelocity;
+
+    public PlayerState State { get; set; } = PlayerState.Free;
     public AnomalyType CurrentZone = AnomalyType.Neutral;
     public float CurrentHealth = 100f, MaxHealth = 100f, CurrentMana = 100f, MaxMana = 100f, DamageMultiplier = 1.0f;
 
@@ -17,11 +22,21 @@ public class PlayerModel
     public int ActiveSlot;
 
     public float Cd1, Cd2, Cd3;
-    public float MaxCd1 = 0.5f, MaxCd2 = 2f, MaxCd3 = 5f;
+    public float MaxCd1 = 0.3f, MaxCd2 = 1.4f, MaxCd3 = 3.5f;
 
     public bool IsDashing => _dashTimer > 0;
     public bool IsAttacking => _attackTimer > 0;
-    public float GreenAuraTimer { get; private set; }
+
+    /// <summary>Срабатывает от зелёного слота 2 (бывший «green aura»): щит отталкивает врагов
+    /// и поглощает <see cref="ShieldDamageReduction"/> входящего урона, пока активен.</summary>
+    public float ShieldTimer { get; private set; }
+
+    public float ShieldRadius { get; private set; } = 220f;
+    public float ShieldDamageReduction { get; private set; } = 0.65f;
+    public bool IsShieldActive => ShieldTimer > 0f;
+
+    /// <summary>Совместимая обёртка: старое имя «GreenAuraTimer» теперь — таймер щита.</summary>
+    public float GreenAuraTimer => ShieldTimer;
 
     private float _dashTimer, _dashCd, _attackTimer;
 
@@ -29,7 +44,16 @@ public class PlayerModel
 
     public void SetState(PlayerState s) => State = s;
 
-    public void TakeDamage(float a) => CurrentHealth = MathHelper.Max(0, CurrentHealth - a);
+    public void TakeDamage(float a)
+    {
+        if (IsShieldActive) a *= 1f - ShieldDamageReduction;
+        CurrentHealth = MathHelper.Max(0, CurrentHealth - a);
+    }
+
+    public void Heal(float a) => CurrentHealth = MathHelper.Min(MaxHealth, CurrentHealth + a);
+
+    /// <summary>Толчок (отдача оружия, телекинез и т.п.).</summary>
+    public void ApplyKnockback(Vector2 impulse) => KnockbackVelocity += impulse;
 
     public void UpdateFacing(Vector2 d)
     {
@@ -62,29 +86,31 @@ public class PlayerModel
 
     public void TickCooldowns(float dt)
     {
-        CurrentMana = MathHelper.Min(MaxMana, CurrentMana + 10f * dt);
+        CurrentMana = MathHelper.Min(MaxMana, CurrentMana + ManaRegenPerSec * dt);
         if (Cd1 > 0) Cd1 -= dt;
         if (Cd2 > 0) Cd2 -= dt;
         if (Cd3 > 0) Cd3 -= dt;
         if (_dashCd > 0) _dashCd -= dt;
         if (_dashTimer > 0) _dashTimer -= dt;
         if (_attackTimer > 0) _attackTimer -= dt;
+        if (ShieldTimer > 0) ShieldTimer -= dt;
+
+        Position += KnockbackVelocity * dt;
+        var decay = MathHelper.Clamp(1f - 6f * dt, 0f, 1f);
+        KnockbackVelocity *= decay;
     }
 
-    /// <summary>Обновляет ульт тури зелёной зоны (тик урона).</summary>
+    /// <summary>Каждый тик щита: отталкивает врагов в радиусе наружу. Урон не наносит — щит «защитный».</summary>
     public void TickGreenAura(float dt, System.Collections.Generic.IReadOnlyList<EnemyModel> enemies)
     {
-        if (GreenAuraTimer <= 0) return;
-
-        GreenAuraTimer -= dt;
+        if (!IsShieldActive) return;
         foreach (var e in enemies)
         {
-            if (e.IsDead || Vector2.Distance(Position, e.Position) >= 200f) continue;
-            Vector2 push = e.Position - Position;
+            if (e.IsDead || Vector2.Distance(Position, e.Position) >= ShieldRadius) continue;
+            var push = e.Position - Position;
             if (push == Vector2.Zero) continue;
-
-            e.Position += Vector2.Normalize(push) * 400f * dt;
-            e.TakeDamage(15f * dt, Position, 0f);
+            e.Position += Vector2.Normalize(push) * 500f * dt;
+            e.Velocity += Vector2.Normalize(push) * 60f;
         }
     }
 
@@ -106,7 +132,17 @@ public class PlayerModel
             _ => true
         };
 
-    public void BeginGreenAura(float durationSeconds) => GreenAuraTimer = durationSeconds;
+    /// <summary>Включить щит: входящий урон режется на <see cref="ShieldDamageReduction"/>,
+    /// активирующий импульс выталкивает врагов в радиусе наружу.</summary>
+    public void BeginShield(float durationSeconds, float radius = 220f, float reduction = 0.65f)
+    {
+        ShieldTimer = durationSeconds;
+        ShieldRadius = radius;
+        ShieldDamageReduction = MathHelper.Clamp(reduction, 0f, 0.9f);
+    }
+
+    /// <summary>Совместимость со старым именем (старые тесты/код вызывают BeginGreenAura).</summary>
+    public void BeginGreenAura(float durationSeconds) => BeginShield(durationSeconds);
 
     /// <summary>Полный сброс при рестарте / новой арене (HP, мана, КД, ауры, таймеры).</summary>
     public void ResetForRun()
@@ -117,7 +153,8 @@ public class PlayerModel
         CurrentZone = AnomalyType.Neutral;
         ActiveSlot = 0;
         Cd1 = Cd2 = Cd3 = 0f;
-        GreenAuraTimer = 0f;
+        ShieldTimer = 0f;
+        KnockbackVelocity = Vector2.Zero;
         _dashTimer = 0f;
         _dashCd = 0f;
         _attackTimer = 0f;
