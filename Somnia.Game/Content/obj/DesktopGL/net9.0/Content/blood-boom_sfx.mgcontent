@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PipelineBuildEvent xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <SourceFile>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/blood-boom_sfx.WAV</SourceFile>
+  <SourceTime>2026-05-12T15:33:29.1445116+05:00</SourceTime>
+  <DestFile>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/bin/DesktopGL/Content/blood-boom_sfx.xnb</DestFile>
+  <DestTime>2026-05-12T16:06:02.7622659+05:00</DestTime>
+  <Importer>WavImporter</Importer>
+  <ImporterTime>2025-10-20T19:25:32+05:00</ImporterTime>
+  <Processor>SoundEffectProcessor</Processor>
+  <ProcessorTime>2025-10-20T19:25:32+05:00</ProcessorTime>
+  <Dependencies />
+  <BuildAsset />
+  <BuildOutput />
+</PipelineBuildEvent>
