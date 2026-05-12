@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -40,23 +39,14 @@ public sealed class HudView
         float arenaTimer,
         float arenaTimerMax)
     {
-        var npcInjured = npc.IsInjured;
-
-        // HUD-блоки изолированы: краш в одном блоке (например незнакомый символ в шрифте)
-        // не должен валить весь кадр.
-        Safe(() => DrawPlayerPanel(sb, player, font, npcInjured, totalSecondsForGlitch));
+        Safe(() => DrawPlayerPanel(sb, player, font));
         Safe(() => DrawNpcPanel(sb, npc, font, bufferWidth));
         Safe(() => DrawSkillSlots(sb, player, font, bufferWidth, bufferHeight));
-        Safe(() => DrawActiveSkillBigIcon(sb, player, font, bufferWidth, bufferHeight));
+        Safe(() => DrawActiveSkillBigIcon(sb, player, font, bufferWidth));
         Safe(() => DrawArenaCounter(sb, font, bufferWidth, arenaDisplayIndex));
         Safe(() => DrawZoneBadge(sb, player, font, bufferWidth));
         Safe(() => DrawArenaTimer(sb, font, bufferWidth, arenaTimer, arenaTimerMax, totalSecondsForGlitch));
         Safe(() => DrawBigPixelTimer(sb, bufferHeight, arenaTimer));
-
-        // «Помехи»-полосы по экрану раньше включались при раненом NPC. Отключены —
-        // мешали читать UI и сами создавали ощущение «тряски шрифта».
-        _ = npcInjured;
-        _ = totalSecondsForGlitch;
     }
 
     private static void Safe(Action a)
@@ -76,11 +66,8 @@ public sealed class HudView
         return sb.ToString();
     }
 
-    private void DrawPlayerPanel(SpriteBatch sb, PlayerModel p, SpriteFont? font, bool glitch, double t)
+    private void DrawPlayerPanel(SpriteBatch sb, PlayerModel p, SpriteFont? font)
     {
-        _ = glitch;
-        _ = t;
-
         const int panelW = 280;
         const int panelH = 92;
 
@@ -88,7 +75,7 @@ public sealed class HudView
         sb.Draw(_pixel, new Rectangle(12, 12, panelW - 4, 2), new Color(60, 70, 100));
 
         DrawBar(sb, 22, 26, panelW - 24, 18, p.CurrentHealth / p.MaxHealth,
-            new Color(50, 15, 20), new Color(230, 60, 70));
+            new Color(18, 42, 28), new Color(72, 235, 130));
         DrawBar(sb, 22, 50, panelW - 24, 10, p.CurrentMana / p.MaxMana,
             new Color(15, 30, 55), new Color(80, 200, 255));
         DrawBar(sb, 22, 66, panelW - 24, 8, p.IsShieldActive ? p.ShieldTimer / 3.5f : 0f,
@@ -178,11 +165,10 @@ public sealed class HudView
     /// нижний правый сектор арены — игрок должен иметь возможность стрелять туда без помех.
     /// </summary>
     private void DrawActiveSkillBigIcon(SpriteBatch sb, PlayerModel p, SpriteFont? font,
-        int bufferWidth, int bufferHeight)
+        int bufferWidth)
     {
         const int radius = 52;
         var center = new Vector2(bufferWidth - radius - 24, radius + 26);
-        _ = bufferHeight;
 
         var icon = SkillSlotCatalog.Get(p.CurrentZone, p.ActiveSlot);
         var (cur, max) = SlotCooldown(p, p.ActiveSlot);
@@ -356,18 +342,5 @@ public sealed class HudView
             new Vector2(x + 3, y + 3),
             new Color(0, 0, 0, 200), pixelSize, pixelSpacing);
         BigPixelDigit.Draw(sb, _pixel, text, new Vector2(x, y), color, pixelSize, pixelSpacing);
-    }
-
-    private void DrawInterferenceStripe(SpriteBatch sb, int w, int h, double t)
-    {
-        var seed = (int)(t * 30) ^ 0x5f3759df;
-        var local = new Random(seed);
-        for (var i = 0; i < 42; i++)
-        {
-            var x = local.Next(-40, w);
-            var yy = local.Next(0, h);
-            var ww = local.Next(20, 120);
-            sb.Draw(_pixel, new Rectangle(x, yy, ww, 2), Color.White * (float)local.NextDouble() * 0.35f);
-        }
     }
 }

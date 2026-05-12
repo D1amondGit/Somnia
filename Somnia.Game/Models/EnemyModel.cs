@@ -13,6 +13,10 @@ public class EnemyModel
     public float TelegraphTimer;
     public bool TelegraphArmed;
     public bool IsInfected, IsDummy, HasDropped;
+
+    /// <summary>Один раз при смерти — чтобы проиграть SFX крови без повторов каждый кадр.</summary>
+    public bool DeathBloodSfxPlayed;
+
     public bool IsDead => Health <= 0;
     public bool IsTelegraphing => TelegraphTimer > 0;
 

@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Somnia.Game.Models;
 using Somnia.Game.Services.AI;
+using Somnia.Game.Services.Audio;
 using Somnia.Game.Services.Camera;
 using Somnia.Game.Services.Combat;
 using Somnia.Game.Services.Economy;
@@ -50,8 +51,11 @@ public sealed class GameplayOrchestrator
     private readonly FloorEffectService _floorFx;
     private readonly WallSparkleEmitter _wallSparkler;
     private float _overtimeReinforcementClock;
+    private AudioController? _audio;
 
     public PlayerInputController PlayerInput { get; }
+
+    public void SetAudio(AudioController? audio) => _audio = audio;
 
     public GameplayOrchestrator(PlayerModel player, IPlayerCombatService? combatOverride = null,
         CameraShakeService? shakeOverride = null)
@@ -276,7 +280,6 @@ public sealed class GameplayOrchestrator
     {
         var p = s.Player;
         var hpBefore = p.CurrentHealth;
-        var aliveBefore = s.Enemies.Count(e => !e.IsDead);
 
         p.TickCooldowns(dt);
         p.TickGreenAura(dt, s.Enemies);
@@ -294,10 +297,13 @@ public sealed class GameplayOrchestrator
             s.Walls,
             s.PlayerProjectiles);
 
+        var skillCountBefore = p.SkillFireCount;
         PlayerInput.Update(frame);
+        if (p.SkillFireCount > skillCountBefore)
+            _audio?.PlayShoot();
 
         foreach (var w in s.Walls)
-            PhysicsHelper.ResolveHexCollision(ref p.Position, 25f, w);
+            PhysicsHelper.ResolveHexCollision(ref p.Position, PlayerModel.CollisionRadius, w);
 
         _npcCarry.TryToggle(previousKeys, currentKeys, p, s.Npc);
         if (s.Npc.IsPickedUp)
@@ -331,6 +337,13 @@ public sealed class GameplayOrchestrator
         RemoveBrokenWalls(s);
 
         _deathLoot.Process(s.Enemies, s.Drops);
+        foreach (var e in s.Enemies)
+        {
+            if (!e.IsDead || e.DeathBloodSfxPlayed) continue;
+            e.DeathBloodSfxPlayed = true;
+            _audio?.PlayBloodBoom();
+        }
+
         _dropOrchestrator.Update(dt, p, s.Drops, s.FloatingTexts);
 
         _floorFx.Tick(s.FloorSplatters, dt);
@@ -356,7 +369,7 @@ public sealed class GameplayOrchestrator
         ZoneResolver.RefreshPlayerZone(p, s.Zones);
         p.DamageMultiplier = ResolveDamageMultiplier(s.Npc);
 
-        AccumulateShakeTrauma(s, hpBefore, aliveBefore);
+        AccumulateShakeTrauma(s, hpBefore);
         _cameraShake.Tick(s.Camera, dt);
 
         TickWipeoutAdvance(s, dt);
@@ -498,19 +511,8 @@ public sealed class GameplayOrchestrator
         BossArenaLayout.CycleAnomalyZoneTypes(s.Zones);
     }
 
-    /// <summary>
-    /// Тряска триггерится ИЗБИРАТЕЛЬНО — только по «весомым» событиям, чтобы каждое
-    /// чувствовалось отдельно, а не сливалось в постоянный дрожащий фон:
-    ///   • получение урона игроком
-    ///   • попадание вражеского снаряда по игроку
-    ///   • AoE-взрыв (ракета/граната)
-    ///   • смерть-взрыв чарджера
-    ///   • отдача собственного оружия (recoil — дробовик/снайперка/автомат; сила в `AccumulateShakeTrauma`)
-    ///
-    /// НЕ трясёт: попадание собственной пули по врагу, убийство врага «не взрывом»,
-    /// попадание вражеского снаряда по NPC.
-    /// </summary>
-    private void AccumulateShakeTrauma(GameplaySessionState s, float hpBefore, int aliveBefore)
+    /// <summary>Тряска по урону игрока, попаданиям, взрывам, AI-травме и отдаче; счётчики симуляторов сбрасываются.</summary>
+    private void AccumulateShakeTrauma(GameplaySessionState s, float hpBefore)
     {
         var hpLost = hpBefore - s.Player.CurrentHealth;
         if (hpLost > 0)
@@ -532,11 +534,9 @@ public sealed class GameplayOrchestrator
         if (recoil > 0f)
             _cameraShake.Trigger(s.Camera, MathHelper.Clamp(recoil * 0.38f, 0.04f, 0.22f));
 
-        // События ниже мы СОЗНАТЕЛЬНО НЕ триггерим, но эти счётчики нужно вычитать,
-        // чтобы они не накапливались бесконечно у симуляторов.
-        _ = _playerProjSim.ConsumeDirectHits();
-        _ = _playerProjSim.ConsumeAoeHits();
-        _ = _enemyProjSim.ConsumeHitsOnNpc();
-        _ = aliveBefore;
+        // Счётчики симуляторов сбрасываем, чтобы не копились между кадрами.
+        _playerProjSim.ConsumeDirectHits();
+        _playerProjSim.ConsumeAoeHits();
+        _enemyProjSim.ConsumeHitsOnNpc();
     }
 }

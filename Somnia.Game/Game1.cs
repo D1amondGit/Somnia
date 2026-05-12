@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input;
 using Somnia.Game.Controllers;
 using Somnia.Game.Models;
 using Somnia.Game.Services.Audio;
+using Somnia.Game.Services.World;
 using Somnia.Game.Session;
 using Somnia.Game.Views;
 
@@ -29,10 +30,18 @@ public class Game1 : Microsoft.Xna.Framework.Game
     private SkillIconAtlas _iconAtlas = null!;
     private SpriteFont? _font;
     private Texture2D? _wallTex;
-    private Texture2D? _floorTex;
+    /// <summary>Опционально из Content/floor.png.</summary>
+    private Texture2D? _floorTexContent;
+    /// <summary>Процедурная текстура пола на текущую арену.</summary>
+    private Texture2D? _floorTexProcedural;
+    private int _floorBuiltForArenaSeed = int.MinValue;
+    private int _floorSettingsFingerprint = int.MinValue;
     private KeyboardState _prevKeyboard;
     private readonly Random _random = new();
     private bool _combatTrackOn;
+    private EntityCharacterSprites _entitySprites = null!;
+    private Vector2 _playerFrameDisp;
+    private Vector2 _npcFrameDisp;
 
     public Game1()
     {
@@ -54,6 +63,7 @@ public class Game1 : Microsoft.Xna.Framework.Game
         _menuController = new MenuController();
         _settingsController = new SettingsController();
         _audio = new AudioController();
+        _orchestrator.SetAudio(_audio);
 
         _session.PlayArea = new Rectangle(0, 0, _gfx.PreferredBackBufferWidth, _gfx.PreferredBackBufferHeight);
         _session.UiState = GameplayPhase.Title;
@@ -69,15 +79,17 @@ public class Game1 : Microsoft.Xna.Framework.Game
         _menuView = new MenuView(GraphicsDevice);
         _settingsView = new SettingsView(GraphicsDevice);
         _iconAtlas = new SkillIconAtlas();
+        _entitySprites = new EntityCharacterSprites();
 
         try { _font = Content.Load<SpriteFont>("MainFont"); } catch { _font = null; }
         try { _wallTex = Content.Load<Texture2D>("wall"); } catch { _wallTex = null; }
-        try { _floorTex = Content.Load<Texture2D>("floor"); } catch { _floorTex = null; }
+        try { _floorTexContent = Content.Load<Texture2D>("floor"); } catch { _floorTexContent = null; }
 
         _audio.LoadContent(Content);
         _audio.PlayMenuTrack();
 
         _iconAtlas.LoadContent(Content);
+        _entitySprites.LoadContent(Content);
         _hudView.UseIconAtlas(_iconAtlas);
     }
 
@@ -99,6 +111,8 @@ public class Game1 : Microsoft.Xna.Framework.Game
 
         if (_session.UiState == GameplayPhase.Playing)
         {
+            RefreshProceduralFloorIfNeeded();
+
             // Скрытый шорткат на босс-арену: Ctrl + Shift + B (один раз по нажатию B).
             if (keyboard.IsKeyDown(Keys.LeftControl) && keyboard.IsKeyDown(Keys.LeftShift) &&
                 keyboard.IsKeyDown(Keys.B) && _prevKeyboard.IsKeyUp(Keys.B))
@@ -111,8 +125,12 @@ public class Game1 : Microsoft.Xna.Framework.Game
 
             try
             {
+                var p0 = _session.Player.Position;
+                var n0 = _session.Npc.Position;
                 _orchestrator.SimulatePlayingFrame(_session, dt, keyboard, _prevKeyboard,
                     _session.Camera.InputTransform);
+                _playerFrameDisp = _session.Player.Position - p0;
+                _npcFrameDisp = _session.Npc.Position - n0;
             }
             catch (System.Exception ex)
             {
@@ -208,12 +226,13 @@ public class Game1 : Microsoft.Xna.Framework.Game
             return;
         }
 
-        _spriteBatch.Begin(samplerState: SamplerState.PointClamp,
+        // LinearClamp: wall/спрайты масштабируются без «зернистого» Point-шума на больших текстурах (512² и т.д.).
+        _spriteBatch.Begin(samplerState: SamplerState.LinearClamp,
             transformMatrix: _session.Camera.WorldTransform);
         _worldScene.Draw(
             _spriteBatch,
             _session.PlayArea,
-            _floorTex,
+            ActiveFloorTexture,
             _session.Player,
             _session.Enemies,
             _session.Zones,
@@ -228,7 +247,10 @@ public class Game1 : Microsoft.Xna.Framework.Game
             _session.PlayerProjectiles,
             _session.FloorSplatters,
             _session.WallSparkles,
-            gameTime.TotalGameTime.TotalSeconds);
+            gameTime.TotalGameTime.TotalSeconds,
+            _playerFrameDisp,
+            _npcFrameDisp,
+            _entitySprites);
         _spriteBatch.End();
 
         _spriteBatch.Begin();
@@ -262,5 +284,48 @@ public class Game1 : Microsoft.Xna.Framework.Game
         _spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+
+    private Texture2D? ActiveFloorTexture => _floorTexProcedural ?? _floorTexContent;
+
+    /// <summary>Пересобирает пол при смене <see cref="GameplaySessionState.ArenaLayoutSeed"/> (новый уровень).</summary>
+    private void RefreshProceduralFloorIfNeeded()
+    {
+        var cfg = _session.FloorTexture;
+        var fp = cfg.ComputeFingerprint();
+        if (!cfg.UseProceduralFloor)
+        {
+            if (_floorTexProcedural != null)
+            {
+                _floorTexProcedural.Dispose();
+                _floorTexProcedural = null;
+            }
+
+            _floorBuiltForArenaSeed = _session.ArenaLayoutSeed;
+            _floorSettingsFingerprint = fp;
+            return;
+        }
+
+        if (_floorBuiltForArenaSeed == _session.ArenaLayoutSeed
+            && _floorSettingsFingerprint == fp
+            && _floorTexProcedural != null)
+            return;
+
+        _floorTexProcedural?.Dispose();
+        _floorTexProcedural =
+            FloorTextureGenerator.GenerateLevel(GraphicsDevice, cfg, _session.ArenaLayoutSeed);
+        _floorBuiltForArenaSeed = _session.ArenaLayoutSeed;
+        _floorSettingsFingerprint = fp;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _floorTexProcedural?.Dispose();
+            _floorTexProcedural = null;
+        }
+
+        base.Dispose(disposing);
     }
 }

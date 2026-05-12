@@ -102,7 +102,7 @@ public sealed class PlayerCombatServiceTests
         var projs = new List<PlayerProjectileModel>();
         var v0 = enemy.Velocity;
 
-        var ok = svc.TryUseActiveSkill(p, new Vector2(1, 0), enemies, new NpcModel(new Vector2(0, 0)), [], projs);
+        var ok = svc.TryUseActiveSkill(p, p.Position + new Vector2(1, 0), enemies, new NpcModel(new Vector2(0, 0)), [], projs);
 
         Assert.That(ok, Is.True);
         Assert.That(p.IsShieldActive, Is.True);
@@ -124,7 +124,7 @@ public sealed class PlayerCombatServiceTests
         var enemies = new List<EnemyModel> { enemy };
         var hpBefore = enemy.Health;
 
-        var ok = svc.TryUseActiveSkill(p, new Vector2(1, 0), enemies, new NpcModel(new Vector2(0, 0)), [],
+        var ok = svc.TryUseActiveSkill(p, p.Position + new Vector2(1, 0), enemies, new NpcModel(new Vector2(0, 0)), [],
             new List<PlayerProjectileModel>());
 
         Assert.That(ok, Is.True);

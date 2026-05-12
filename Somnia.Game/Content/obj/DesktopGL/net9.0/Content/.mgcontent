@@ -5,25 +5,23 @@
   <Config />
   <SourceFiles>
     <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/MainFont.spritefont</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/floor.png</File>
     <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/wall.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/auto.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/shotgun.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/sniper.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/grenade.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/shield.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/dash.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/bomb.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/freeze.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/pull.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Skills/infect.png</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/hit_sfx.wav</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/explode_sfx.wav</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/menu_track.ogg</File>
-    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/combat_track.ogg</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Player/player-stay.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Player/player-walk.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Carry/player-carry-stay.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Carry/player-carry-walk.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Npc/npc.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Enemies/boss.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Enemies/melee-walk-1.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Enemies/melee-walk-2.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Enemies/sniper-stay.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/Enemies/sniper-walk.png</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/menu_track.mp3</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/combat-track.mp3</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/blood-boom_sfx.WAV</File>
+    <File>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/shoot_sfx.WAV</File>
   </SourceFiles>
   <DestFiles>
-    <File xsi:nil="true" />
     <File xsi:nil="true" />
     <File xsi:nil="true" />
     <File xsi:nil="true" />

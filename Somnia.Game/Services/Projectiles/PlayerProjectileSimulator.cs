@@ -84,6 +84,13 @@ public sealed class PlayerProjectileSimulator
             pr.Position = nextPos;
             pr.LifeRemaining -= dt;
 
+            if (pr.LifeRemaining <= 0f && IsAoeKind(pr.Kind) && !pr.Exploded)
+            {
+                DetonateAoe(pr, enemies, player, npc, pr.Position, walls, fx, splatters);
+                projectiles.RemoveAt(i);
+                continue;
+            }
+
             if (IsAoeKind(pr.Kind) && !pr.Exploded &&
                 pr.MaxTravelDistance > 0f &&
                 pr.DistanceTraveled >= pr.MaxTravelDistance)

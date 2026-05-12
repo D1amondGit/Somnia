@@ -3,7 +3,7 @@
   <SourceFile>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/floor.png</SourceFile>
   <SourceTime>2026-05-12T04:36:50.0737233+05:00</SourceTime>
   <DestFile>C:/Users/Пользователь/RiderProjects/Somnia.git/Somnia.Game/Content/bin/DesktopGL/Content/floor.xnb</DestFile>
-  <DestTime>2026-05-12T04:42:45.8732766+05:00</DestTime>
+  <DestTime>2026-05-12T13:44:39.6238705+05:00</DestTime>
   <Importer>TextureImporter</Importer>
   <ImporterTime>2025-10-20T19:25:32+05:00</ImporterTime>
   <Processor>TextureProcessor</Processor>
@@ -14,7 +14,7 @@
   </Parameters>
   <Parameters>
     <Key>ColorKeyEnabled</Key>
-    <Value>False</Value>
+    <Value>True</Value>
   </Parameters>
   <Parameters>
     <Key>GenerateMipmaps</Key>

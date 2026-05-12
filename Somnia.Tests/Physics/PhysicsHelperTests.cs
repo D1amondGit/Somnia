@@ -12,7 +12,7 @@ public sealed class PhysicsHelperTests
         var pos = hex.Center - new Vector2(0, hex.WallHeight);
         var before = pos;
 
-        PhysicsHelper.ResolveHexCollision(ref pos, playerRadius: 25f, hex);
+        PhysicsHelper.ResolveHexCollision(ref pos, 25f, hex);
         Assert.That(Vector2.DistanceSquared(before, pos), Is.GreaterThan(0.5f));
     }
 }

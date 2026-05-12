@@ -10,6 +10,16 @@ namespace Somnia.Game.Views;
 
 public sealed class WorldSceneView
 {
+    private const float EntitySpriteScale = 2.45f;
+    private const float EnemySpriteHeightBoost = 1.22f;
+    /// <summary>Игрок и NPC крупнее общего масштаба врагов.</summary>
+    private const float PlayerNpcSpriteBoost = 1.56f;
+    /// <summary>Дальник (стрелок) — спрайт уже по форме, уменьшаем высоту.</summary>
+    private const float ShooterSpriteHeightMul = 0.64f;
+
+    /// <summary>Полоска HP над игроком — зелёная, чтобы не путать с красными барами врагов.</summary>
+    private static readonly Color PlayerHpBarColor = new Color(72, 235, 130, 255);
+
     private readonly SpritePrimitiveRenderer _prim;
 
     public WorldSceneView(GraphicsDevice device) => _prim = new SpritePrimitiveRenderer(device);
@@ -32,7 +42,10 @@ public sealed class WorldSceneView
         IReadOnlyList<PlayerProjectileModel> playerProj,
         IReadOnlyList<FloorSplatter>? floorSplatters = null,
         IReadOnlyList<WallSparkle>? wallSparkles = null,
-        double timeSec = 0.0)
+        double timeSec = 0.0,
+        Vector2 playerDisplacementThisFrame = default,
+        Vector2 npcDisplacementThisFrame = default,
+        EntityCharacterSprites? entitySprites = null)
     {
         DrawPlayFloor(sb, playArea, floorTexture, _prim.PixelTexture);
 
@@ -50,10 +63,10 @@ public sealed class WorldSceneView
         DrawPlayerProjectiles(sb, playerProj);
         DrawAttackPreview(sb, player);
 
-        DrawNpc(sb, npc);
-        DrawEnemies(sb, enemies);
+        DrawNpc(sb, npc, npcDisplacementThisFrame, entitySprites);
+        DrawEnemies(sb, enemies, player, timeSec, entitySprites);
         DrawMuzzleFlashes(sb, enemies);
-        DrawPlayer(sb, player);
+        DrawPlayer(sb, player, playerDisplacementThisFrame, entitySprites);
 
         // Яркие брызги — сверху всего, чтобы было видно «момент попадания».
         DrawFloorSplatters(sb, floorSplatters, onlyScorch: false);
@@ -71,8 +84,8 @@ public sealed class WorldSceneView
     }
 
     /// <summary>
-    /// Пол без процедурной генерации: тайлится <paramref name="floorTexture"/> если задана
-    /// (положи свою в Content/floor.png), иначе — ровная заливка под зоны и сущности.
+    /// Пол: тайлится <paramref name="floorTexture"/> если задана (процедурная или Content/floor.png),
+    /// иначе — однотонная заливка.
     /// </summary>
     private static void DrawPlayFloor(SpriteBatch sb, Rectangle playArea, Texture2D? floorTexture,
         Texture2D pixelFallback)
@@ -155,8 +168,16 @@ public sealed class WorldSceneView
 
     private void DrawWalls(SpriteBatch sb, IReadOnlyList<HexagonModel> walls, Texture2D? wallTexture)
     {
+        // Сначала бока, потом чёрная шапка сверху — иначе вертикальные полосы wall.png перекрывают заливку
+        // и сквозь «крышку» виден пол (псевдо-дырка).
         foreach (var w in walls)
             SpritePrimitiveRenderer.DrawHexWalls(sb, _prim, w, wallTexture);
+
+        foreach (var w in walls)
+        {
+            var top = w.GetTopVertices();
+            _prim.FillPoly(sb, top, Color.Black);
+        }
 
         foreach (var w in walls)
         {
@@ -164,17 +185,11 @@ public sealed class WorldSceneView
 
             if (w.IsDestructible)
             {
-                // Разрушаемое укрытие: цвет верхушки зависит от оставшегося HP.
                 var frac = MathHelper.Clamp(w.DestructibleHealth / w.MaxDestructibleHealth, 0f, 1f);
-                var topColor = Color.Lerp(new Color(60, 18, 20), new Color(40, 30, 25), frac);
-                _prim.FillPoly(sb, top, topColor);
-
-                // Edge — тёплый/тревожный жёлто-красный, чтобы укрытие читалось как «бьющееся».
                 var edge = Color.Lerp(new Color(255, 80, 50), new Color(255, 200, 120), frac);
                 for (var i = 0; i < top.Count; i++)
                     _prim.DrawLine(sb, top[i], top[(i + 1) % top.Count], edge, 2);
 
-                // Трещины при низком HP — чёрные полоски через центр.
                 if (frac < 0.6f)
                 {
                     var cracks = frac < 0.3f ? 4 : 2;
@@ -190,10 +205,9 @@ public sealed class WorldSceneView
             }
             else
             {
-                // Обычная стена: чёрная верхушка + холодная кромка.
-                _prim.FillPoly(sb, top, Color.Black);
+                var rim = new Color(115, 125, 148) * 0.88f;
                 for (var i = 0; i < top.Count; i++)
-                    _prim.DrawLine(sb, top[i], top[(i + 1) % top.Count], new Color(150, 165, 195), 2);
+                    _prim.DrawLine(sb, top[i], top[(i + 1) % top.Count], rim, 2);
             }
         }
     }
@@ -355,18 +369,76 @@ public sealed class WorldSceneView
         sb.Draw(t, new Rectangle(p.Right, p.Y, 2000, p.Height), Color.Black);
     }
 
-    private void DrawPlayer(SpriteBatch sb, PlayerModel p)
+    private void DrawFootShadow(SpriteBatch sb, Vector2 foot, float baseRadius)
+    {
+        var shadow = new HexagonModel(foot, baseRadius * 1.15f, 0f,
+            IsometricView.Squash * 0.65f, IsometricView.Tilt * 0.4f);
+        _prim.FillPoly(sb, shadow.GetBaseVertices(), new Color(0, 0, 0, 110));
+    }
+
+    private void DrawPlayer(SpriteBatch sb, PlayerModel p, Vector2 displacementThisFrame,
+        EntityCharacterSprites? sprites)
     {
         var body = PlayerPalette.GetBodyColor(p);
         var accent = PlayerPalette.GetAccentColor(p);
-        IsoEntityRenderer.DrawCharacter(sb, _prim, p.Position, baseRadius: 18f, height: 40f, body, accent);
+        var carrying = p.State == PlayerState.Carrying;
+        var walk = displacementThisFrame.LengthSquared() > 16f || p.IsDashing;
+
+        if (sprites != null && sprites.HasPlayerSprites)
+        {
+            Texture2D? tex;
+            if (carrying)
+            {
+                tex = walk
+                    ? (sprites.PlayerCarryWalk ?? sprites.PlayerCarryStay ?? sprites.PlayerWalk)
+                    : (sprites.PlayerCarryStay ?? sprites.PlayerStay);
+            }
+            else
+            {
+                tex = walk ? (sprites.PlayerWalk ?? sprites.PlayerStay) : sprites.PlayerStay;
+            }
+
+            tex ??= sprites.PlayerWalk ?? sprites.PlayerStay;
+            if (tex != null)
+            {
+                var ph = 44f * EntitySpriteScale * PlayerNpcSpriteBoost;
+                DrawFootShadow(sb, p.Position, 26f);
+                var tint = Color.Lerp(Color.White, body, 0.15f);
+                EntitySpriteDrawHelper.DrawBottomCenter(sb, tex, p.Position, ph, tint,
+                    flipHorizontal: p.FacingDir.X < 0f,
+                    bottomPaddingFrac: PlayerModel.SpriteBottomPaddingFrac);
+                IsoEntityRenderer.DrawHealthBar(sb, _prim, p.Position,
+                    characterHeight: 40f * EntitySpriteScale * PlayerNpcSpriteBoost,
+                    widthPx: 48f,
+                    fraction: p.CurrentHealth / p.MaxHealth, barColor: PlayerHpBarColor);
+                return;
+            }
+        }
+
+        IsoEntityRenderer.DrawCharacter(sb, _prim, p.Position, baseRadius: 22f, height: 48f, body, accent);
         IsoEntityRenderer.DrawHealthBar(sb, _prim, p.Position, characterHeight: 40f, widthPx: 48f,
-            fraction: p.CurrentHealth / p.MaxHealth, barColor: new Color(255, 70, 70));
+            fraction: p.CurrentHealth / p.MaxHealth, barColor: PlayerHpBarColor);
     }
 
-    private void DrawNpc(SpriteBatch sb, NpcModel npc)
+    private void DrawNpc(SpriteBatch sb, NpcModel npc, Vector2 displacementThisFrame,
+        EntityCharacterSprites? sprites)
     {
         if (npc.IsPickedUp || npc.IsDead) return;
+
+        if (sprites?.Npc != null)
+        {
+            DrawFootShadow(sb, npc.Position, 19f);
+            var tint = npc.IsInjured ? new Color(255, 220, 180) : Color.White;
+            var flip = displacementThisFrame.X < -0.5f;
+            EntitySpriteDrawHelper.DrawBottomCenter(sb, sprites.Npc, npc.Position,
+                38f * EntitySpriteScale * PlayerNpcSpriteBoost, tint, flip);
+            IsoEntityRenderer.DrawHealthBar(sb, _prim, npc.Position,
+                characterHeight: 34f * EntitySpriteScale * PlayerNpcSpriteBoost,
+                widthPx: 44f,
+                fraction: npc.Health / npc.MaxHealth, barColor: new Color(120, 230, 130));
+            return;
+        }
+
         var body = npc.IsInjured ? new Color(220, 180, 80) : new Color(240, 220, 90);
         var accent = new Color(255, 240, 160);
         IsoEntityRenderer.DrawCharacter(sb, _prim, npc.Position, baseRadius: 17f, height: 34f, body, accent);
@@ -374,17 +446,118 @@ public sealed class WorldSceneView
             fraction: npc.Health / npc.MaxHealth, barColor: new Color(120, 230, 130));
     }
 
-    private void DrawEnemies(SpriteBatch sb, IReadOnlyList<EnemyModel> enemies)
+    private void DrawEnemies(SpriteBatch sb, IReadOnlyList<EnemyModel> enemies, PlayerModel player,
+        double timeSec, EntityCharacterSprites? sprites)
     {
         foreach (var e in enemies)
         {
             if (e.IsDead) continue;
             var a = e.Archetype;
             var body = ResolveEnemyColor(e);
-            IsoEntityRenderer.DrawCharacter(sb, _prim, e.Position, a.BodyRadius, a.BodyHeight, body, a.AccentColor);
-            IsoEntityRenderer.DrawHealthBar(sb, _prim, e.Position, a.BodyHeight, a.BodyRadius * 2.2f,
-                e.Health / e.MaxHealth, new Color(220, 60, 60));
+
+            if (sprites != null && TryDrawEnemySprite(sb, e, player, timeSec, sprites, body, a))
+                continue;
+
+            // Без PNG в Content — последний запас: не «гекс-столб», а плоский силуэт (читается лучше).
+            DrawEnemyFallbackBlob(sb, e, a, body);
         }
+    }
+
+    private bool TryDrawEnemySprite(SpriteBatch sb, EnemyModel e, PlayerModel player, double timeSec,
+        EntityCharacterSprites sprites, Color tint, EnemyArchetype a)
+    {
+        if (sprites.MeleeWalk1 == null && sprites.SniperStay == null && sprites.Boss == null)
+            return false;
+
+        var moving = e.Velocity.LengthSquared() > 400f;
+        var towardPlayer = player.Position - e.Position;
+        var flip = e.Velocity.LengthSquared() > 100f
+            ? e.Velocity.X < 0f
+            : (towardPlayer.X < 0f);
+
+        Texture2D? tex = null;
+        var h = a.BodyHeight * 1.1f * EntitySpriteScale * EnemySpriteHeightBoost;
+
+        switch (e.Type)
+        {
+            case EnemyType.Boss:
+                tex = sprites.Boss ?? sprites.MeleeWalk1;
+                h = a.BodyHeight * 1.35f * EntitySpriteScale * EnemySpriteHeightBoost;
+                break;
+            case EnemyType.Melee:
+                tex = sprites.MeleeWalk1 ?? sprites.SniperStay;
+                if (tex == null) return false;
+                if (moving && sprites.MeleeWalk2 != null && sprites.MeleeWalk1 != null)
+                {
+                    var phase = (int)(timeSec * 5.0) & 1;
+                    tex = phase == 0 ? sprites.MeleeWalk1 : sprites.MeleeWalk2;
+                }
+
+                break;
+            case EnemyType.Sniper:
+                tex = moving ? (sprites.SniperWalk ?? sprites.SniperStay) : sprites.SniperStay;
+                tex ??= sprites.MeleeWalk1;
+                break;
+            case EnemyType.Shooter:
+                tex = moving
+                    ? (sprites.SniperWalk ?? sprites.MeleeWalk2 ?? sprites.MeleeWalk1 ?? sprites.SniperStay)
+                    : (sprites.SniperStay ?? sprites.MeleeWalk1);
+                break;
+            case EnemyType.Charger:
+                if (moving && sprites.MeleeWalk1 != null)
+                {
+                    var phase = (int)(timeSec * 7.0) & 1;
+                    tex = sprites.MeleeWalk2 != null && phase == 1 ? sprites.MeleeWalk2 : sprites.MeleeWalk1;
+                }
+                else
+                    tex = sprites.MeleeWalk1 ?? sprites.SniperWalk ?? sprites.SniperStay;
+
+                break;
+            default:
+                return false;
+        }
+
+        if (tex == null) return false;
+
+        if (e.Type == EnemyType.Shooter)
+            h *= ShooterSpriteHeightMul;
+
+        var vivid = VividEnemySpriteTint(e, tint);
+        DrawFootShadow(sb, e.Position, a.BodyRadius * 1.08f);
+        EntitySpriteDrawHelper.DrawBottomCenterOutlined(sb, tex, e.Position, h, vivid, flip);
+        IsoEntityRenderer.DrawHealthBar(sb, _prim, e.Position, a.BodyHeight * EntitySpriteScale, a.BodyRadius * 2.2f,
+            e.Health / e.MaxHealth, new Color(220, 60, 60));
+        return true;
+    }
+
+    /// <summary>Если нет ни одного PNG врага — плоский овал + контур вместо изометрического «столба».</summary>
+    private void DrawEnemyFallbackBlob(SpriteBatch sb, EnemyModel e, EnemyArchetype a, Color body)
+    {
+        var px = _prim.PixelTexture;
+        var r = MathHelper.Max(a.BodyRadius * 1.35f, 20f);
+        var w = (int)(r * 2.1f);
+        var h = (int)(r * 2.5f);
+        var rect = new Rectangle((int)(e.Position.X - w / 2f), (int)(e.Position.Y - h / 2f), w, h);
+        var fill = Color.Lerp(body, Color.White, 0.12f);
+        sb.Draw(px, rect, fill * 0.92f);
+        _prim.DrawCircleOutline(sb, e.Position, r * 0.95f, Color.Lerp(a.AccentColor, Color.White, 0.35f), 3);
+        IsoEntityRenderer.DrawHealthBar(sb, _prim, e.Position, a.BodyHeight * EntitySpriteScale, a.BodyRadius * 2.2f,
+            e.Health / e.MaxHealth, new Color(220, 60, 60));
+    }
+
+    private static Color VividEnemySpriteTint(EnemyModel e, Color c)
+    {
+        if (e.DamageFlash > 0) return Color.White;
+        var lift = e.Type switch
+        {
+            EnemyType.Charger => 0.26f,
+            EnemyType.Shooter => 0.24f,
+            EnemyType.Melee => 0.18f,
+            EnemyType.Sniper => 0.20f,
+            EnemyType.Boss => 0.14f,
+            _ => 0.18f
+        };
+        return Color.Lerp(c, Color.White, lift);
     }
 
     private static Color ResolveEnemyColor(EnemyModel e)

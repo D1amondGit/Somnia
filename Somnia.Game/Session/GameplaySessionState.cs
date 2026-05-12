@@ -67,4 +67,7 @@ public sealed class GameplaySessionState
 
     /// <summary>Сколько волн подкреплений уже выпущено (пока жив босс).</summary>
     public int BossReinforcementWavesDone { get; set; }
+
+    /// <summary>Параметры процедурной текстуры пола (изолинии). Редактируй в отладчике для подбора вида.</summary>
+    public FloorTextureSettings FloorTexture { get; set; } = new();
 }

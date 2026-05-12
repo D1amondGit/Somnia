@@ -9,6 +9,12 @@ public class PlayerModel
     public const float SpeedDashing = 1100f;
     public const float ManaRegenPerSec = 18f;
 
+    /// <summary>Круг столкновения в плоскости мира (совпадает с «ногами» под спрайтом).</summary>
+    public const float CollisionRadius = 32f;
+
+    /// <summary>Доля высоты PNG снизу — пустой паддинг под персонажем; якорь поднимается, чтобы ноги совпали с <see cref="Position"/>.</summary>
+    public const float SpriteBottomPaddingFrac = 0.34f;
+
     public Vector2 Position, FacingDir = Vector2.UnitX;
 
     /// <summary>Доп. импульс (отдача от выстрелов, толчки). Затухает в TickCooldowns.</summary>
@@ -39,6 +45,9 @@ public class PlayerModel
     public float GreenAuraTimer => ShieldTimer;
 
     private float _dashTimer, _dashCd, _attackTimer;
+
+    /// <summary>Увеличивается при каждом успешном касте навыка (для SFX выстрела и т.п.).</summary>
+    public int SkillFireCount { get; private set; }
 
     public PlayerModel(Vector2 start) => Position = start;
 
@@ -117,6 +126,7 @@ public class PlayerModel
     /// <summary>Выставляет таймер визуала атаки и кулдауны активного слота при успешном касте.</summary>
     public void RegisterSkillExecuted()
     {
+        SkillFireCount++;
         _attackTimer = 0.25f;
         if (ActiveSlot == 0) Cd1 = MaxCd1;
         else if (ActiveSlot == 1) Cd2 = MaxCd2;
@@ -158,5 +168,6 @@ public class PlayerModel
         _dashTimer = 0f;
         _dashCd = 0f;
         _attackTimer = 0f;
+        SkillFireCount = 0;
     }
 }

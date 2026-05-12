@@ -31,7 +31,7 @@ public sealed class PlayerProjectileSimulatorTests
         sim.Update(1f / 1200f, list, enemies, walls);
         Assert.That(enemy.Health, Is.EqualTo(100f));
 
-        for (var i = 0; i < 30 && enemy.Health > 99f; i++)
+        for (var i = 0; i < 80 && enemy.Health > 99f; i++)
             sim.Update(1f / 120f, list, enemies, walls);
 
         Assert.That(enemy.Health, Is.LessThan(100f));

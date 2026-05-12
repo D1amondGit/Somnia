@@ -47,29 +47,92 @@ public sealed class SpritePrimitiveRenderer
         }
     }
 
-    public void DrawWall(SpriteBatch sb, Texture2D? texture, Vector2 p1, Vector2 p2, float wallHeight)
+    /// <summary>
+    /// Чуть вытянуть текстуру по высоте грани (визуально крупнее кладка на торце).
+    /// </summary>
+    public const float WallFaceHeightScale = 1.12f;
+
+    /// <summary>Основная модуляция боковой грани — тёмный «объём тени» под чёрной шапкой гекса.</summary>
+    public static readonly Color WallFaceShadowModulate = new Color(22, 24, 30, 255);
+
+    /// <summary>Второй проход: лёгкий lift по альфе (зернистость), не осветлять сильно — стены остаются тёмными.</summary>
+    public static readonly Color WallFaceGrainModulate = new Color(255, 255, 255, 18);
+
+    /// <summary>
+    /// Одна боковая грань призмы: верх t1→t2, низ b1→b2.
+    /// В нашей изометрии рёбра t1–b1 и t2–b2 вертикальны в экране, а верх/низ параллельны — это трапеция,
+    /// а не параллелограмм: один <see cref="SpriteBatch.Draw"/> с rotation не может её покрыть.
+    /// Режем грань вертикальными полосками по X: каждая — ось-выровненный прямоугольник с корректным U по текстуре.
+    /// </summary>
+    public void DrawWallFace(
+        SpriteBatch sb,
+        Texture2D? texture,
+        Vector2 t1,
+        Vector2 t2,
+        Vector2 b1,
+        Vector2 b2,
+        float wallHeightFallback,
+        float faceHeightScale = WallFaceHeightScale)
     {
         if (texture == null) return;
-        if (p1.X > p2.X) (p1, p2) = (p2, p1);
 
-        var w = p2.X - p1.X;
-        if (w <= 0) return;
+        var texW = texture.Width;
+        var texH = texture.Height;
+        if (texW < 1 || texH < 1) return;
 
-        for (var x = 0f; x <= w; x++)
+        var x1 = t1.X;
+        var x2 = t2.X;
+        var denom = x2 - x1;
+        const int stripStep = 2;
+        var minX = (int)MathHelper.Min(MathHelper.Min(t1.X, t2.X), MathHelper.Min(b1.X, b2.X));
+        var maxX = (int)Math.Ceiling(MathHelper.Max(MathHelper.Max(t1.X, t2.X), MathHelper.Max(b1.X, b2.X)));
+        if (maxX <= minX)
+            maxX = minX + stripStep;
+
+        for (var xi = minX; xi < maxX; xi += stripStep)
         {
-            var ty = MathHelper.Lerp(p1.Y, p2.Y, x / Math.Max(w, 0.001f));
-            sb.Draw(texture, new Rectangle((int)(p1.X + x), (int)ty, 2, (int)wallHeight), Color.Gray);
+            var xc = xi + stripStep * 0.5f;
+            float s;
+            if (MathF.Abs(denom) < 0.25f)
+                s = 0.5f;
+            else
+                s = MathHelper.Clamp((xc - x1) / denom, 0f, 1f);
+
+            var topPt = Vector2.Lerp(t1, t2, s);
+            var botPt = Vector2.Lerp(b1, b2, s);
+            var rawH = botPt.Y - topPt.Y;
+            var y0 = rawH >= 0f ? topPt.Y : botPt.Y;
+            var absH = MathF.Abs(rawH);
+            if (absH < 1f)
+                absH = wallHeightFallback * faceHeightScale;
+            else
+                absH *= faceHeightScale;
+
+            var destH = MathHelper.Max(1, (int)MathF.Ceiling(absH));
+            var destRect = new Rectangle(xi, (int)MathF.Floor(y0), stripStep, destH);
+
+            var srcX = (int)(s * MathHelper.Max(0, texW - 1));
+            var srcRect = new Rectangle(srcX, 0, 1, texH);
+
+            sb.Draw(texture, destRect, srcRect, WallFaceShadowModulate);
+            sb.Draw(texture, destRect, srcRect, WallFaceGrainModulate);
         }
     }
 
     public static void DrawHexWalls(SpriteBatch sb, SpritePrimitiveRenderer prim, HexagonModel hex, Texture2D? wallTex)
     {
         if (wallTex == null) return;
-        var r = hex.GetTopVertices();
+        var top = hex.GetTopVertices();
+        var bas = hex.GetBaseVertices();
+        if (top.Count < 6 || bas.Count < 6) return;
 
-        prim.DrawWall(sb, wallTex, r.ElementAt(0), r.ElementAt(1), hex.WallHeight);
-        prim.DrawWall(sb, wallTex, r.ElementAt(1), r.ElementAt(2), hex.WallHeight);
-        prim.DrawWall(sb, wallTex, r.ElementAt(2), r.ElementAt(3), hex.WallHeight);
+        for (var i = 0; i < 6; i++)
+        {
+            prim.DrawWallFace(sb, wallTex,
+                top[i], top[(i + 1) % 6],
+                bas[i], bas[(i + 1) % 6],
+                hex.WallHeight);
+        }
     }
 
     public void DrawLine(SpriteBatch sb, Vector2 p1, Vector2 p2, Color c, int thickness = 2)

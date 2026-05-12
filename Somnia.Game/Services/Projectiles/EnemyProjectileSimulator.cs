@@ -45,7 +45,9 @@ public sealed class EnemyProjectileSimulator
                 continue;
             }
 
-            if (!skipDamageToPlayerAndNpc && Vector2.Distance(pr.Position, player.Position) < 30f)
+            if (!skipDamageToPlayerAndNpc &&
+                Vector2.DistanceSquared(pr.Position, player.Position) <=
+                (PlayerModel.CollisionRadius + pr.Radius) * (PlayerModel.CollisionRadius + pr.Radius))
             {
                 player.TakeDamage(12f);
                 _hitsOnPlayerThisFrame++;

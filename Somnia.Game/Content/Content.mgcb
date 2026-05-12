@@ -20,23 +20,11 @@
 /processorParam:TextureFormat=Compressed
 /build:MainFont.spritefont
 
-#begin floor.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyColor=255,0,255,255
-/processorParam:ColorKeyEnabled=False
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:floor.png
-
 #begin wall.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
-/processorParam:ColorKeyEnabled=False
+/processorParam:ColorKeyEnabled=True
 /processorParam:GenerateMipmaps=False
 /processorParam:PremultiplyAlpha=True
 /processorParam:ResizeToPowerOfTwo=False
@@ -44,7 +32,7 @@
 /processorParam:TextureFormat=Color
 /build:wall.png
 
-#begin Skills/auto.png
+#begin Player/player-stay.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -53,9 +41,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/auto.png
+/build:Player/player-stay.png
 
-#begin Skills/shotgun.png
+#begin Player/player-walk.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -64,9 +52,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/shotgun.png
+/build:Player/player-walk.png
 
-#begin Skills/sniper.png
+#begin Carry/player-carry-stay.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -75,9 +63,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/sniper.png
+/build:Carry/player-carry-stay.png
 
-#begin Skills/grenade.png
+#begin Carry/player-carry-walk.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -86,9 +74,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/grenade.png
+/build:Carry/player-carry-walk.png
 
-#begin Skills/shield.png
+#begin Npc/npc.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -97,9 +85,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/shield.png
+/build:Npc/npc.png
 
-#begin Skills/dash.png
+#begin Enemies/boss.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -108,9 +96,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/dash.png
+/build:Enemies/boss.png
 
-#begin Skills/bomb.png
+#begin Enemies/melee-walk-1.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -119,9 +107,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/bomb.png
+/build:Enemies/melee-walk-1.png
 
-#begin Skills/freeze.png
+#begin Enemies/melee-walk-2.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -130,9 +118,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/freeze.png
+/build:Enemies/melee-walk-2.png
 
-#begin Skills/pull.png
+#begin Enemies/sniper-stay.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -141,9 +129,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/pull.png
+/build:Enemies/sniper-stay.png
 
-#begin Skills/infect.png
+#begin Enemies/sniper-walk.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyEnabled=False
@@ -152,28 +140,25 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Skills/infect.png
+/build:Enemies/sniper-walk.png
 
-#begin hit_sfx.wav
+#begin menu_track.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/build:menu_track.mp3
+
+#begin combat-track.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/build:combat-track.mp3
+
+#begin blood-boom_sfx.WAV
 /importer:WavImporter
 /processor:SoundEffectProcessor
-/processorParam:Quality=Best
-/build:hit_sfx.wav
+/build:blood-boom_sfx.WAV
 
-#begin explode_sfx.wav
+#begin shoot_sfx.WAV
 /importer:WavImporter
 /processor:SoundEffectProcessor
-/processorParam:Quality=Best
-/build:explode_sfx.wav
+/build:shoot_sfx.WAV
 
-#begin menu_track.ogg
-/importer:OggImporter
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:menu_track.ogg
-
-#begin combat_track.ogg
-/importer:OggImporter
-/processor:SongProcessor
-/processorParam:Quality=Best
-/build:combat_track.ogg

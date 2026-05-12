@@ -66,7 +66,7 @@ public sealed class EnemyAiService
                 {
                     var strike = BossController.GetStrikeFocusWorld(enemy, player, npc);
                     var distBoss = Vector2.Distance(enemy.Position, strike);
-                    BossController.Update(enemy, player, npc, distBoss, dt, walls, projectiles, destructibleWalls);
+                    BossController.Update(enemy, player, npc, distBoss, dt, projectiles, destructibleWalls);
                     break;
                 }
             }
